@@ -18,10 +18,10 @@ const AppShell = () => {
     if (role === 'recruiter') {
       return ['Home', 'Recruiter', 'Jobs', 'Community'].includes(item.label);
     }
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'employee') {
       return ['Home', 'Admin', 'Community'].includes(item.label);
     }
-    return ['Home', 'Student', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
+    return ['Home', 'Student', 'Certificates', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
 
   const handleLogout = () => {

@@ -8,6 +8,7 @@ import SectionHeader from '../components/SectionHeader';
 import { recommendedLessons, scoreTrend, weakAreas, dynamicWeakAreas, dynamicLessons } from '../data/platform';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -501,6 +502,13 @@ const StudentDashboard = () => {
           }
           action={
             <div className="flex gap-3">
+              <Link 
+                to="/certificates"
+                className="group inline-flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-cyan-400 transition-all hover:bg-cyan-500/10"
+              >
+                <FileBadge className="h-4 w-4" />
+                My Certificates
+              </Link>
               <button 
                 onClick={() => setShowProfileModal(true)}
                 className="group inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-slate-300 transition-all hover:bg-white/5 hover:text-white"

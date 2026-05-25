@@ -1,4 +1,4 @@
-import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
@@ -73,12 +73,162 @@ const normalizeFooter = (footer: FooterData): FooterData => ({
   copyright: footer.copyright ?? '',
 });
 
+const SignaturePad = ({ onSave, initialSignature }: { onSave: (data: string) => void, initialSignature?: string }) => {
+  const [canvasRef, setCanvasRef] = useState<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  useEffect(() => {
+    if (canvasRef && initialSignature) {
+      const ctx = canvasRef.getContext('2d');
+      if (ctx) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvasRef.width, canvasRef.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = initialSignature;
+      }
+    }
+  }, [canvasRef, initialSignature]);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!canvasRef) return;
+    const ctx = canvasRef.getContext('2d');
+    if (!ctx) return;
+
+    ctx.strokeStyle = '#22d3ee'; // cyan-400
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+
+    const rect = canvasRef.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !canvasRef) return;
+    const ctx = canvasRef.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvasRef.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    e.preventDefault();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearCanvas = () => {
+    if (!canvasRef) return;
+    const ctx = canvasRef.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvasRef.width, canvasRef.height);
+    }
+  };
+
+  const saveSignature = () => {
+    if (!canvasRef) return;
+    const dataUrl = canvasRef.toDataURL('image/png');
+    onSave(dataUrl);
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-300">Draw your official signature below using mouse or touch screen:</p>
+      <div className="border border-cyan-500/20 bg-slate-950 rounded-xl overflow-hidden shadow-inner">
+        <canvas
+          ref={setCanvasRef}
+          width={500}
+          height={200}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          className="w-full max-w-[500px] h-[200px] cursor-crosshair touch-none"
+        />
+      </div>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={clearCanvas}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all"
+        >
+          Clear Pad
+        </button>
+        <button
+          type="button"
+          onClick={saveSignature}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white transition-all shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+        >
+          Save Signature
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const isMainAdmin = user?.email === 'skilldnaai@ai.com';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'footer' | 'admins'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'footer' | 'admins' | 'certificates'>('overview');
   const [footerData, setFooterData] = useState<FooterData>(defaultFooterData);
+
+  // Certificates Approval & Signature State
+  const [pendingCertificates, setPendingCertificates] = useState<any[]>([]);
+  const [certificatesLoading, setCertificatesLoading] = useState(false);
+  const [adminSignature, setAdminSignature] = useState<string>('');
+  const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [auditingCertificate, setAuditingCertificate] = useState<any>({
+    careerPath: '',
+    technicalScore: 0,
+    communicationScore: 0,
+    problemSolvingScore: 0,
+    confidenceScore: 0,
+    strengths: '',
+    improvements: '',
+  });
+
+  const fetchPendingCertificates = async () => {
+    try {
+      setCertificatesLoading(true);
+      const res = await apiRequest<any[]>('/certificates/admin/pending');
+      setPendingCertificates(res || []);
+    } catch (error) {
+      console.error('Failed to fetch pending certificates:', error);
+    } finally {
+      setCertificatesLoading(false);
+    }
+  };
+
+  const fetchAdminSignature = async () => {
+    try {
+      const res = await apiRequest<{ signatureBase64: string }>('/certificates/admin/signature');
+      setAdminSignature(res?.signatureBase64 || '');
+    } catch (error) {
+      console.error('Failed to fetch admin signature:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'certificates') {
+      fetchPendingCertificates();
+      fetchAdminSignature();
+    }
+  }, [activeTab]);
   const [overview, setOverview] = useState<any>(null);
   const [moderationData, setModerationData] = useState<ModerationData | null>(null);
   const [isEditingFooter, setIsEditingFooter] = useState(false);
@@ -322,6 +472,13 @@ const AdminDashboard = () => {
             >
               <Edit3 className="h-4 w-4 text-cyan-400" />
               <span>Footer settings</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('certificates')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'certificates' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <Award className="h-4 w-4 text-cyan-400" />
+              <span>Certificates & Signature</span>
             </button>
           </div>
           <div className="mt-6 rounded-2xl border border-white/5 bg-slate-950/60 p-4">
@@ -589,6 +746,151 @@ const AdminDashboard = () => {
       </motion.section>
 
             </>
+          )}
+
+          {activeTab === 'certificates' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6"
+            >
+              {/* Header */}
+              <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md relative overflow-hidden">
+                <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-500/10 blur-[80px]" />
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Award className="h-6 w-6 text-cyan-400" />
+                  Certificate Approvals & Digital Signature Settings
+                </h2>
+                <p className="mt-2 text-slate-400 text-sm">
+                  Configure your digital handwritten signature and audit requested certificates. Signing a certificate will transition it to APPROVED and stamp it with your official digital signature.
+                </p>
+              </div>
+
+              {/* Digital Signature Panel */}
+              <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <PenTool className="h-5 w-5 text-cyan-400" />
+                  Configure Your Digital Signature
+                </h3>
+                {adminSignature ? (
+                  <div className="space-y-4">
+                    <div className="p-4 border border-cyan-500/20 bg-slate-950/60 rounded-xl inline-block">
+                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-semibold">Active Signature Image:</p>
+                      <img src={adminSignature} alt="Digital Signature" className="max-h-[100px] bg-white rounded p-2" />
+                    </div>
+                    <p className="text-sm text-slate-400">
+                      Signature is configured! Want to update it? Draw below and save to overwrite.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-yellow-300/80 text-sm mb-4">
+                    No active digital signature found. You must configure and save your signature before approving any certificates.
+                  </div>
+                )}
+                
+                <div className="mt-6 border-t border-slate-800 pt-6">
+                  <SignaturePad
+                    initialSignature={adminSignature}
+                    onSave={async (signatureData) => {
+                      try {
+                        await apiRequest('/certificates/admin/signature', {
+                          method: 'POST',
+                          body: JSON.stringify({ signatureBase64: signatureData }),
+                        });
+                        setAdminSignature(signatureData);
+                        alert('Digital signature saved successfully!');
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to save digital signature');
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Certificates Queue */}
+              <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <FileClock className="h-5 w-5 text-cyan-400" />
+                  Pending Approvals ({pendingCertificates.length})
+                </h3>
+
+                {certificatesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+                  </div>
+                ) : pendingCertificates.length === 0 ? (
+                  <div className="text-center py-12 border border-white/5 rounded-2xl bg-slate-950/20">
+                    <Award className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400">No pending certificate approval requests found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-300">
+                      <thead className="bg-slate-950/40 text-slate-400 uppercase text-xs font-mono">
+                        <tr>
+                          <th className="px-6 py-4">Student</th>
+                          <th className="px-6 py-4">Career Path</th>
+                          <th className="px-6 py-4">Overall Score</th>
+                          <th className="px-6 py-4">Requested Date</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {pendingCertificates.map((cert) => (
+                          <tr key={cert._id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="px-6 py-4 font-semibold text-white">
+                              <div>{cert.studentName}</div>
+                              <div className="text-xs text-slate-500 font-normal">{cert.email}</div>
+                            </td>
+                            <td className="px-6 py-4">{cert.careerPath}</td>
+                            <td className="px-6 py-4 text-cyan-400 font-bold">{cert.overallScore} / 100</td>
+                            <td className="px-6 py-4 text-slate-400">
+                              {new Date(cert.createdAt || cert.issueDate).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 text-right space-x-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedCertificate(cert);
+                                  setAuditingCertificate({
+                                    careerPath: cert.careerPath,
+                                    technicalScore: cert.technicalScore,
+                                    communicationScore: cert.communicationScore,
+                                    problemSolvingScore: cert.problemSolvingScore,
+                                    confidenceScore: cert.confidenceScore,
+                                    strengths: cert.strengths?.join(', ') || '',
+                                    improvements: cert.improvements?.join(', ') || '',
+                                  });
+                                  setShowApproveModal(true);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold text-xs transition-all animate-pulse"
+                              >
+                                Audit & Sign
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`Are you sure you want to reject ${cert.studentName}'s certificate request?`)) return;
+                                  try {
+                                    await apiRequest(`/certificates/admin/reject/${cert.certificateId}`, { method: 'POST' });
+                                    alert('Certificate rejected.');
+                                    fetchPendingCertificates();
+                                  } catch (err: any) {
+                                    alert(err.message || 'Failed to reject certificate');
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-bold text-xs transition-all"
+                              >
+                                Reject
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           )}
 
           {activeTab === 'footer' && (
@@ -993,6 +1295,242 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Audit & Approve Modal */}
+      {showApproveModal && selectedCertificate && (() => {
+        const calculatedOverall = Math.round(
+          (parseInt(auditingCertificate.technicalScore || 0) +
+           parseInt(auditingCertificate.communicationScore || 0) +
+           parseInt(auditingCertificate.problemSolvingScore || 0) +
+           parseInt(auditingCertificate.confidenceScore || 0)) / 4
+        );
+        const readinessColor = 
+          calculatedOverall >= 85 ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+          calculatedOverall >= 70 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+          calculatedOverall >= 50 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+          'bg-red-500/20 text-red-400 border-red-500/30';
+        const readinessText = 
+          calculatedOverall >= 85 ? 'ADVANCED' :
+          calculatedOverall >= 70 ? 'READY' :
+          calculatedOverall >= 50 ? 'IN PROGRESS' :
+          'NOT READY';
+
+        return (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900 border border-cyan-500/20 rounded-3xl max-w-5xl w-full overflow-hidden shadow-2xl"
+            >
+              <div className="bg-gradient-to-r from-blue-900 to-cyan-900 p-6 flex items-center justify-between border-b border-cyan-500/20">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Award className="h-6 w-6 text-cyan-300" />
+                  Audit & Sign: {selectedCertificate.studentName}
+                </h2>
+                <button
+                  onClick={() => setShowApproveModal(false)}
+                  className="text-slate-400 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-6 grid gap-8 lg:grid-cols-12 max-h-[80vh] overflow-y-auto">
+                {/* Left Column: Form Controls */}
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!adminSignature) {
+                      alert('You must configure your digital signature before approving certificates.');
+                      return;
+                    }
+
+                    try {
+                      const payload = {
+                        ...auditingCertificate,
+                        technicalScore: parseInt(auditingCertificate.technicalScore),
+                        communicationScore: parseInt(auditingCertificate.communicationScore),
+                        problemSolvingScore: parseInt(auditingCertificate.problemSolvingScore),
+                        confidenceScore: parseInt(auditingCertificate.confidenceScore),
+                        strengths: auditingCertificate.strengths ? auditingCertificate.strengths.split(',').map((s: string) => s.trim()) : [],
+                        improvements: auditingCertificate.improvements ? auditingCertificate.improvements.split(',').map((i: string) => i.trim()) : [],
+                      };
+
+                      await apiRequest(`/certificates/admin/approve/${selectedCertificate.certificateId}`, {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                      });
+
+                      alert('Certificate digitally approved and signed!');
+                      setShowApproveModal(false);
+                      fetchPendingCertificates();
+                    } catch (err: any) {
+                      alert(err.message || 'Failed to approve certificate');
+                    }
+                  }}
+                  className="lg:col-span-5 space-y-4"
+                >
+                  <div>
+                    <label className="text-slate-300 font-semibold mb-1 block text-sm">Career Path</label>
+                    <input
+                      type="text"
+                      value={auditingCertificate.careerPath}
+                      onChange={(e) => setAuditingCertificate({ ...auditingCertificate, careerPath: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 text-sm"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { key: 'technicalScore', label: 'Technical Score' },
+                      { key: 'communicationScore', label: 'Communication' },
+                      { key: 'problemSolvingScore', label: 'Problem Solving' },
+                      { key: 'confidenceScore', label: 'Confidence Score' },
+                    ].map(({ key, label }) => (
+                      <div key={key}>
+                        <label className="text-slate-300 font-semibold mb-1 block text-xs">{label}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={auditingCertificate[key]}
+                          onChange={(e) => setAuditingCertificate({ ...auditingCertificate, [key]: e.target.value })}
+                          className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-400 text-sm"
+                          required
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="text-slate-300 font-semibold mb-1 block text-sm">Strengths (comma-separated)</label>
+                    <textarea
+                      value={auditingCertificate.strengths}
+                      onChange={(e) => setAuditingCertificate({ ...auditingCertificate, strengths: e.target.value })}
+                      placeholder="e.g., System Design, Coding speed"
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 text-xs"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-300 font-semibold mb-1 block text-sm">Improvements (comma-separated)</label>
+                    <textarea
+                      value={auditingCertificate.improvements}
+                      onChange={(e) => setAuditingCertificate({ ...auditingCertificate, improvements: e.target.value })}
+                      placeholder="e.g., Stress management, Communication depth"
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 text-xs"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div className="flex gap-4 pt-4 border-t border-slate-800">
+                    <button
+                      type="submit"
+                      disabled={!adminSignature}
+                      className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:from-slate-700 disabled:to-slate-700 text-slate-950 disabled:text-slate-500 font-bold py-2.5 rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] text-sm"
+                    >
+                      Sign & Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowApproveModal(false)}
+                      className="flex-1 bg-slate-800 hover:bg-slate-750 text-white font-semibold py-2.5 rounded-xl transition-all text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+
+                {/* Right Column: Live Certificate Preview */}
+                <div className="lg:col-span-7 flex flex-col justify-between">
+                  <p className="text-xs font-semibold text-cyan-400 mb-2 uppercase tracking-wide">Live Certificate Preview:</p>
+                  
+                  <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-cyan-500/20 rounded-2xl p-6 shadow-2xl space-y-4 relative overflow-hidden h-full flex flex-col justify-between min-h-[440px]">
+                    {/* Background Light */}
+                    <div className="absolute -right-16 -top-16 h-36 w-36 rounded-full bg-cyan-500/10 blur-[40px] pointer-events-none" />
+                    
+                    {/* Header */}
+                    <div className="text-center pb-4 border-b border-slate-800">
+                      <h4 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">SkillDNA AI</h4>
+                      <p className="text-[10px] text-cyan-300 tracking-wider uppercase font-semibold">Certificate of Verified Learning</p>
+                    </div>
+
+                    {/* Awardee details */}
+                    <div className="text-center space-y-2 py-2">
+                      <p className="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Awarded To</p>
+                      <h5 className="text-xl font-bold text-white leading-tight">{selectedCertificate.studentName}</h5>
+                      <p className="text-[11px] text-slate-400">{selectedCertificate.email}</p>
+                      <div className="inline-block px-3 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
+                        Career Path: {auditingCertificate.careerPath || 'Software Developer'}
+                      </div>
+                    </div>
+
+                    {/* Scores Dashboard */}
+                    <div className="grid grid-cols-5 gap-2 text-center">
+                      {[
+                        { label: 'Tech', val: auditingCertificate.technicalScore },
+                        { label: 'Comm', val: auditingCertificate.communicationScore },
+                        { label: 'Problem', val: auditingCertificate.problemSolvingScore },
+                        { label: 'Conf', val: auditingCertificate.confidenceScore },
+                        { label: 'Overall', val: calculatedOverall, isOverall: true },
+                      ].map((item) => (
+                        <div key={item.label} className={`p-2 rounded-lg border ${item.isOverall ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400' : 'bg-slate-950/40 border-slate-800 text-slate-300'}`}>
+                          <p className="text-[8px] uppercase tracking-wider text-slate-400 leading-none">{item.label}</p>
+                          <p className="text-sm font-bold mt-1 leading-none">{item.val || 0}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Key Strengths & Status */}
+                    <div className="space-y-2 py-2 border-t border-slate-800/40">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400 text-[11px]">Readiness Status:</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${readinessColor}`}>
+                          {readinessText}
+                        </span>
+                      </div>
+                      
+                      {auditingCertificate.strengths && (
+                        <div className="text-left">
+                          <p className="text-[8px] uppercase tracking-wider text-slate-500 font-semibold leading-none mb-1">Key Strengths:</p>
+                          <p className="text-[10px] text-slate-300 truncate leading-tight">{auditingCertificate.strengths}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stamped bottom footer */}
+                    <div className="flex items-center justify-between border-t border-slate-800 pt-4 mt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-white rounded p-0.5 flex items-center justify-center border border-slate-700 shadow">
+                          <div className="w-full h-full bg-slate-900 flex flex-wrap gap-[1px] p-[1px]">
+                            {Array.from({ length: 9 }).map((_, i) => (
+                              <div key={i} className={`w-[8px] h-[8px] ${i % 2 === 0 ? 'bg-white' : 'bg-transparent'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[7px] text-slate-500 leading-tight">Scan to<br />Verify</p>
+                      </div>
+
+                      <div className="text-right">
+                        {adminSignature ? (
+                          <div className="inline-block bg-white border border-cyan-500/20 rounded p-1 shadow max-w-[110px] transition-all">
+                            <img src={adminSignature} alt="Admin Signature Stamp" className="max-h-[30px] object-contain" />
+                          </div>
+                        ) : (
+                          <span className="text-[9px] font-bold text-yellow-500 uppercase animate-pulse">Signature Required</span>
+                        )}
+                        <p className="text-[7px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">Digitally Stamped</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
     </main>
   );
 };

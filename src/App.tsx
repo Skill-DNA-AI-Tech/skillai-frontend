@@ -71,11 +71,11 @@ const AnimatedRoutes = () => {
           <Route path="/jobs" element={<ProtectedRoute allowedRoles={['student', 'recruiter']}><Jobs /></ProtectedRoute>} />
           <Route path="/recruiter" element={<ProtectedRoute allowedRoles={['recruiter']}><RecruiterPortal /></ProtectedRoute>} />
           <Route path="/recruiter/report/:token" element={<ProtectedRoute allowedRoles={['recruiter']}><ReportCard /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['admin']}><QuestionBankDashboard /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'employee']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['admin', 'employee']}><QuestionBankDashboard /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
           <Route path="/certificates" element={<ProtectedRoute allowedRoles={['student']}><CertificateManagementPage /></ProtectedRoute>} />
-          <Route path="/certificate/:certificateId" element={<ProtectedRoute allowedRoles={['student']}><CertificatePage /></ProtectedRoute>} />
+          <Route path="/certificate/:certificateId" element={<ProtectedRoute allowedRoles={['student', 'recruiter', 'admin', 'employee']}><CertificatePage /></ProtectedRoute>} />
           <Route path="/certificate/verify/:certificateId" element={<CertificateVerifyPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/register" element={<Register />} />

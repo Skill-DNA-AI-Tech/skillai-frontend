@@ -13,6 +13,7 @@ interface Certificate {
   overallScore: number;
   interviewReadinessStatus: string;
   sharedWith: Array<{ recruiterEmail: string }>;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 const CertificateManagementPage: React.FC = () => {
@@ -20,7 +21,53 @@ const CertificateManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  const handleDownloadPDF = async (certId: string, certIdStr: string) => {
+    try {
+      setDownloadingId(certId);
+      const response = await api.get(
+        `/api/certificates/${certIdStr}/pdf`,
+        { responseType: 'blob' }
+      );
+      
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `SkillDNA-Certificate-${certIdStr}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download PDF', err);
+      alert('Failed to download PDF certificate');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleShareCertificate = async (certIdStr: string) => {
+    const recruiterEmail = window.prompt("Enter recruiter's email to share this certificate:");
+    if (!recruiterEmail) return;
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recruiterEmail.trim())) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      await api.post(`/api/certificates/${certIdStr}/share`, {
+        recruiterEmail: recruiterEmail.trim(),
+      });
+      alert('Certificate shared successfully!');
+      fetchCertificates();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to share certificate');
+    }
+  };
+
+  const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
     careerPath: '',
     technicalScore: 0,
@@ -28,12 +75,47 @@ const CertificateManagementPage: React.FC = () => {
     problemSolvingScore: 0,
     confidenceScore: 0,
     sessionsCompleted: 0,
-    strengths: '' as string,
-    improvements: '' as string,
+    strengths: '',
+    improvements: '',
   });
+
+  const fetchStudentProfile = async () => {
+    try {
+      const response = await api.get('/api/profiles/me');
+      if (response.data) {
+        setProfile(response.data);
+        const skillDNA = response.data.skillDNA || {};
+        
+        // Count actual completed mock sessions
+        let actualSessions = 0;
+        try {
+          const sessionsRes = await api.get('/api/interviews/sessions/me');
+          if (sessionsRes.data && Array.isArray(sessionsRes.data)) {
+            actualSessions = sessionsRes.data.filter((s: any) => s.status === 'completed').length;
+          }
+        } catch (e) {
+          console.warn('Failed to fetch interview session count, using defaults:', e);
+        }
+
+        setFormData({
+          careerPath: response.data.preferredRoles?.[0] || response.data.branch || 'Software Engineering',
+          technicalScore: skillDNA.technicalScore || 70,
+          communicationScore: skillDNA.communicationScore || 75,
+          problemSolvingScore: skillDNA.projectsScore || skillDNA.aptitudeScore || 72,
+          confidenceScore: skillDNA.confidenceScore || 68,
+          sessionsCompleted: actualSessions || 0,
+          strengths: skillDNA.strengths?.join(', ') || 'Problem Solving, System Design',
+          improvements: skillDNA.weaknesses?.join(', ') || 'Communication Depth',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load profile in certificates page:', err);
+    }
+  };
 
   useEffect(() => {
     fetchCertificates();
+    fetchStudentProfile();
   }, []);
 
   const fetchCertificates = async () => {
@@ -148,9 +230,18 @@ const CertificateManagementPage: React.FC = () => {
                 className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-cyan-500/20 hover:border-cyan-400/50 shadow-lg hover:shadow-cyan-500/20 transition-all overflow-hidden group"
               >
                 {/* Header */}
-                <div className="bg-gradient-to-r from-blue-900 to-cyan-900 p-4">
-                  <p className="text-sm text-cyan-300 font-mono truncate">{cert.certificateId}</p>
-                  <p className="text-white font-semibold">{cert.careerPath}</p>
+                <div className="bg-gradient-to-r from-blue-900 to-cyan-900 p-4 flex items-center justify-between gap-4">
+                  <div className="truncate">
+                    <p className="text-sm text-cyan-300 font-mono truncate">{cert.certificateId}</p>
+                    <p className="text-white font-semibold truncate">{cert.careerPath}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                    cert.status === 'APPROVED' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                    cert.status === 'REJECTED' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                    'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse'
+                  }`}>
+                    {cert.status || 'PENDING'}
+                  </span>
                 </div>
 
                 {/* Content */}
@@ -179,26 +270,44 @@ const CertificateManagementPage: React.FC = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-2">
-                    <Link
-                      to={`/certificate/${cert.certificateId}`}
-                      className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2 rounded transition-all"
-                    >
-                      <Eye className="w-4 h-4" /> View
-                    </Link>
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2 rounded transition-all"
-                      title="Download PDF"
-                    >
-                      <Download className="w-4 h-4" /> PDF
-                    </button>
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2 rounded transition-all"
-                      title="Share with recruiter"
-                    >
-                      <Share2 className="w-4 h-4" /> Share
-                    </button>
-                  </div>
+                  {cert.status === 'APPROVED' ? (
+                    <div className="flex gap-2 pt-2">
+                      <Link
+                        to={`/certificate/${cert.certificateId}`}
+                        className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2 rounded transition-all"
+                      >
+                        <Eye className="w-4 h-4" /> View
+                      </Link>
+                      <button
+                        onClick={() => handleDownloadPDF(cert._id, cert.certificateId)}
+                        disabled={downloadingId === cert._id}
+                        className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white text-sm font-semibold py-2 rounded transition-all"
+                        title="Download PDF"
+                      >
+                        {downloadingId === cert._id ? (
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                        <span>PDF</span>
+                      </button>
+                      <button
+                        onClick={() => handleShareCertificate(cert.certificateId)}
+                        className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2 rounded transition-all"
+                        title="Share with recruiter"
+                      >
+                        <Share2 className="w-4 h-4" /> Share
+                      </button>
+                    </div>
+                  ) : cert.status === 'REJECTED' ? (
+                    <div className="p-2 text-center rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                      This certificate request was rejected.
+                    </div>
+                  ) : (
+                    <div className="p-2 text-center rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-semibold animate-pulse">
+                      Pending digital signature and approval...
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
