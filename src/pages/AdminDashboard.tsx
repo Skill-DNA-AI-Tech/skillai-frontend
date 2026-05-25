@@ -431,7 +431,10 @@ const AdminDashboard = () => {
           title="Operate content, users, reports, jobs, and analytics"
           description="Manage students, recruiters, companies, lessons, quizzes, webinars, reports, badges, emails, job postings, and moderation from one control surface."
           action={
-            <button className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95">
+            <button 
+              onClick={() => window.location.href = '/admin/questions'}
+              className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95"
+            >
               <FilePlus2 className="h-5 w-5 transition-transform group-hover:scale-110" />
               Create Content
             </button>

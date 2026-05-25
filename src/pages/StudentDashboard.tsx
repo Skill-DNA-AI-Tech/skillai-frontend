@@ -516,7 +516,13 @@ const StudentDashboard = () => {
                 <UserCog className="h-4 w-4" />
                 Edit Profile
               </button>
-              <button className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/certificates`);
+                  alert("Your verified certificates and learning report link has been copied to your clipboard! Share this link with recruiters to showcase your SkillDNA scores.");
+                }}
+                className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95"
+              >
                 <Send className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 Share Report
               </button>
