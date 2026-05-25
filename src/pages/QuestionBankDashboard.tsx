@@ -31,6 +31,9 @@ const QuestionBankDashboard = () => {
   const [generating, setGenerating] = useState(false);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [duplicateResults, setDuplicateResults] = useState<any[]>([]);
+  const [stats, setStats] = useState<QuestionStats | null>(null);
+  const [pendingQuestions, setPendingQuestions] = useState<GeneratedQuestion[]>([]);
+  const [approving, setApproving] = useState<string | null>(null);
   const [uploadFormat, setUploadFormat] = useState<'csv' | 'excel' | 'json' | 'manual'>('csv');
   const [generateForm, setGenerateForm] = useState({
     field: '',
@@ -38,6 +41,15 @@ const QuestionBankDashboard = () => {
     subtopic: '',
     difficulty: 'Medium',
     count: 10,
+  });
+  const [manualForm, setManualForm] = useState({
+    field: '',
+    topic: '',
+    subtopic: '',
+    question: '',
+    answer: '',
+    difficulty: 'Medium',
+    interviewType: 'Technical',
   });
 
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -48,9 +60,18 @@ const QuestionBankDashboard = () => {
       const formData = new FormData();
       formData.append('uploadFormat', uploadFormat);
 
-      const fileInput = document.getElementById('fileInput') as HTMLInputElement;
-      if (fileInput?.files?.[0]) {
-        formData.append('file', fileInput.files[0]);
+      if (uploadFormat === 'manual') {
+        if (!manualForm.field || !manualForm.topic || !manualForm.question || !manualForm.answer) {
+          throw new Error('Please fill in all required fields (Field, Topic, Question, Answer).');
+        }
+        formData.append('manualQuestions', JSON.stringify([manualForm]));
+      } else {
+        const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+        if (fileInput?.files?.[0]) {
+          formData.append('file', fileInput.files[0]);
+        } else {
+          throw new Error('Please select a file to upload.');
+        }
       }
 
       const response = await apiRequest<any>('/questions/admin/upload', {
@@ -60,7 +81,21 @@ const QuestionBankDashboard = () => {
       });
 
       alert(`${response.questions.length} questions uploaded successfully!`);
-      fileInput.value = ''; // Clear input
+      
+      if (uploadFormat === 'manual') {
+        setManualForm({
+          field: '',
+          topic: '',
+          subtopic: '',
+          question: '',
+          answer: '',
+          difficulty: 'Medium',
+          interviewType: 'Technical',
+        });
+      } else {
+        const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+        if (fileInput) fileInput.value = ''; // Clear input
+      }
     } catch (error: any) {
       alert('Upload failed: ' + error.message);
     } finally {
@@ -265,8 +300,99 @@ const QuestionBankDashboard = () => {
                 </div>
               )}
 
+              {uploadFormat === 'manual' && (
+                <div className="grid gap-4 mt-2 p-4 rounded-lg border border-white/5 bg-slate-950/40">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Field *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Computer Science"
+                        value={manualForm.field}
+                        onChange={(e) => setManualForm({ ...manualForm, field: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500"
+                        required={uploadFormat === 'manual'}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Topic *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. JavaScript"
+                        value={manualForm.topic}
+                        onChange={(e) => setManualForm({ ...manualForm, topic: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500"
+                        required={uploadFormat === 'manual'}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Subtopic</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Closures"
+                        value={manualForm.subtopic}
+                        onChange={(e) => setManualForm({ ...manualForm, subtopic: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Difficulty</label>
+                      <select
+                        value={manualForm.difficulty}
+                        onChange={(e) => setManualForm({ ...manualForm, difficulty: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500"
+                      >
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                        <option value="Expert">Expert</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Interview Type</label>
+                      <select
+                        value={manualForm.interviewType}
+                        onChange={(e) => setManualForm({ ...manualForm, interviewType: e.target.value })}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500"
+                      >
+                        <option value="Technical">Technical</option>
+                        <option value="HR">HR</option>
+                        <option value="Behavioral">Behavioral</option>
+                        <option value="Scenario">Scenario</option>
+                        <option value="Domain">Domain</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Question *</label>
+                    <textarea
+                      placeholder="Enter the question..."
+                      value={manualForm.question}
+                      onChange={(e) => setManualForm({ ...manualForm, question: e.target.value })}
+                      className="w-full h-20 px-3 py-2 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500 resize-none"
+                      required={uploadFormat === 'manual'}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Model Answer *</label>
+                    <textarea
+                      placeholder="Enter the expected model answer..."
+                      value={manualForm.answer}
+                      onChange={(e) => setManualForm({ ...manualForm, answer: e.target.value })}
+                      className="w-full h-24 px-3 py-2 rounded border border-white/10 bg-slate-950 text-white text-sm focus:border-cyan-500 resize-none"
+                      required={uploadFormat === 'manual'}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="text-xs text-slate-400">
-                Expected format: Question, Answer, Difficulty, Topic, Subtopic, Tags, Field, Interview Type
+                {uploadFormat === 'manual' ? '* Required fields for manual question creation.' : 'Expected format: Question, Answer, Difficulty, Topic, Subtopic, Tags, Field, Interview Type'}
               </div>
 
               <button
@@ -444,7 +570,7 @@ const QuestionBankDashboard = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {pendingQuestions.map((q) => (
+              {pendingQuestions.map((q: GeneratedQuestion) => (
                 <div key={q._id} className="rounded-lg border border-white/10 bg-slate-900/50 p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -515,7 +641,7 @@ const QuestionBankDashboard = () => {
             <div className="rounded-lg border border-cyan-500/20 bg-cyan-950/30 p-6">
               <p className="text-sm text-slate-400">Questions Asked</p>
               <p className="text-3xl font-bold text-cyan-400 mt-2">
-                {stats.mostAsked.reduce((a, b) => a + b.timesAsked, 0)}
+                {stats.mostAsked.reduce((a: number, b: any) => a + b.timesAsked, 0)}
               </p>
             </div>
           </div>
@@ -524,7 +650,7 @@ const QuestionBankDashboard = () => {
           <div className="rounded-lg border border-white/10 bg-slate-900/50 p-6">
             <h3 className="font-semibold text-white mb-4">By Difficulty</h3>
             <div className="space-y-2">
-              {stats.byDifficulty.map((d) => (
+              {stats.byDifficulty.map((d: any) => (
                 <div key={d._id} className="flex items-center justify-between">
                   <span className="text-slate-300">{d._id}</span>
                   <div className="flex items-center gap-2">
@@ -545,7 +671,7 @@ const QuestionBankDashboard = () => {
           <div className="rounded-lg border border-white/10 bg-slate-900/50 p-6">
             <h3 className="font-semibold text-white mb-4">Most Asked Questions</h3>
             <div className="space-y-2">
-              {stats.mostAsked.map((q, i) => (
+              {stats.mostAsked.map((q: any, i: number) => (
                 <div key={i} className="p-3 rounded bg-slate-950 text-sm">
                   <div className="text-slate-300">{q.question}</div>
                   <div className="text-xs text-slate-500 mt-1">Asked {q.timesAsked} times</div>

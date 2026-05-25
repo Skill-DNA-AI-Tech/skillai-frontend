@@ -24,6 +24,7 @@ const QUESTIONS = [
 const InterviewCoach = () => {
   const { token } = useAuth();
   
+  const [questions, setQuestions] = useState<string[]>(QUESTIONS);
   const [interviewState, setInterviewState] = useState<InterviewState>('idle');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [transcript, setTranscript] = useState('');
@@ -38,6 +39,28 @@ const InterviewCoach = () => {
   const userVideoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<any>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    const fetchPersonalizedQuestions = async () => {
+      if (!token) return;
+      try {
+        const memory = await apiRequest<any>('/career-twin/me', { token });
+        if (memory?.dynamicInterview?.personalizedQuestion) {
+          const customQs = [
+            "Hello! Welcome to your personalized interview. Let's start with your background and primary skills.",
+            memory.dynamicInterview.personalizedQuestion,
+          ];
+          if (memory.dynamicInterview.followUpQuestion) {
+            customQs.push(memory.dynamicInterview.followUpQuestion);
+          }
+          setQuestions(customQs);
+        }
+      } catch (err) {
+        console.warn("Could not load personalized questions, using default interview questions.", err);
+      }
+    };
+    fetchPersonalizedQuestions();
+  }, [token]);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -152,7 +175,7 @@ const InterviewCoach = () => {
       
       // We need to wait for voices to load sometimes
       setTimeout(() => {
-        const firstQ = QUESTIONS[0];
+        const firstQ = questions[0];
         setFullTranscript([{ role: 'ai', text: firstQ }]);
         speakQuestion(firstQ);
       }, 500);
@@ -194,13 +217,13 @@ const InterviewCoach = () => {
     const updatedTranscript = [...fullTranscript, { role: 'user' as const, text: transcript || '(No answer provided)' }];
     setFullTranscript(updatedTranscript);
     
-    if (currentQuestionIndex < QUESTIONS.length - 1) {
+    if (currentQuestionIndex < questions.length - 1) {
       const nextIdx = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIdx);
       setInterviewState('ai_asking');
       setTranscript('');
       
-      const nextQ = QUESTIONS[nextIdx];
+      const nextQ = questions[nextIdx];
       setFullTranscript(prev => [...prev, { role: 'ai', text: nextQ }]);
       speakQuestion(nextQ);
     } else {
@@ -376,7 +399,7 @@ const InterviewCoach = () => {
                 </button>
               ) : interviewState === 'user_answering' ? (
                 <button onClick={handleNextQuestion} className="inline-flex items-center gap-2 rounded-md bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                  <Mic className="h-4 w-4" /> {currentQuestionIndex < QUESTIONS.length - 1 ? "Finish Answer & Next" : "Finish Interview"}
+                  <Mic className="h-4 w-4" /> {currentQuestionIndex < questions.length - 1 ? "Finish Answer & Next" : "Finish Interview"}
                 </button>
               ) : interviewState === 'ai_asking' ? (
                 <button disabled className="inline-flex items-center gap-2 rounded-md bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-400 cursor-not-allowed">
@@ -398,7 +421,7 @@ const InterviewCoach = () => {
             <div className="flex items-center gap-3 text-slate-400 text-sm">
               <Camera className={`h-4 w-4 ${interviewState !== 'idle' && interviewState !== 'finished' ? 'text-cyan-400' : ''}`} />
               <Mic className={`h-4 w-4 ${interviewState !== 'idle' && interviewState !== 'finished' ? 'text-cyan-400' : ''}`} />
-              <span className="ml-2">Question {interviewState !== 'idle' && interviewState !== 'finished' ? currentQuestionIndex + 1 : 0} of {QUESTIONS.length}</span>
+              <span className="ml-2">Question {interviewState !== 'idle' && interviewState !== 'finished' ? currentQuestionIndex + 1 : 0} of {questions.length}</span>
             </div>
           </div>
 

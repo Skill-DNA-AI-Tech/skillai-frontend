@@ -42,12 +42,39 @@ interface StudentProfile {
   skillDNA?: SkillDNA;
 }
 
+interface DashboardMetric {
+  label: string;
+  value: number;
+  suffix: string;
+  tone: string;
+}
+
+interface FocusArea {
+  topic: string;
+  score: number;
+  action: string;
+}
+
+interface RecommendedLesson {
+  domain: string;
+  topic: string;
+  type: string;
+  minutes: number;
+  level: string;
+}
+
+interface DashboardAnalysis {
+  metrics?: DashboardMetric[];
+  weakAreas?: FocusArea[];
+  recommendedLessons?: RecommendedLesson[];
+}
+
 const StudentDashboard = () => {
   const { token } = useAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<DashboardAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   // Profile Setup Modal State
@@ -125,7 +152,7 @@ const StudentDashboard = () => {
     try {
       // Mock user token for local demo if missing
       const demoToken = token || "demo-token";
-      const data = await apiRequest<any>('/ai/deep-analysis', {
+      const data = await apiRequest<DashboardAnalysis>('/ai/deep-analysis', {
         method: 'POST',
         body: JSON.stringify(deepProfile),
         token: demoToken
@@ -158,7 +185,7 @@ const StudentDashboard = () => {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const metrics = aiAnalysis?.metrics || (profile
+  const metrics: DashboardMetric[] = aiAnalysis?.metrics || (profile
     ? [
         { label: 'SkillDNA Score', value: profile.skillDNA?.score ?? 0, suffix: '%', tone: 'bg-violet-500' },
         { label: 'Interview Readiness', value: profile.skillDNA?.confidenceScore ?? 0, suffix: '%', tone: 'bg-sky-500' },
@@ -173,14 +200,14 @@ const StudentDashboard = () => {
       ]);
 
   // Dynamically map profile weaknesses to the required format if aiAnalysis is not present
-  const currentWeakAreas = aiAnalysis?.weakAreas || (profile?.skillDNA?.weaknesses 
+  const currentWeakAreas: FocusArea[] = aiAnalysis?.weakAreas || (profile?.skillDNA?.weaknesses 
     ? profile.skillDNA.weaknesses.map((w: string, i: number) => ({ topic: w, score: 50 + (i * 5), action: 'Focus area' }))
-    : weakAreas);
+    : weakAreas as FocusArea[]);
 
   // Dynamic Lessons based on profile strengths or default
-  const currentLessons = aiAnalysis?.recommendedLessons || (profile?.skillDNA?.strengths
+  const currentLessons: RecommendedLesson[] = aiAnalysis?.recommendedLessons || (profile?.skillDNA?.strengths
     ? profile.skillDNA.strengths.map((s: string) => ({ domain: 'Career Path', topic: `Advanced ${s}`, type: 'Video', minutes: 25, level: 'Intermediate' }))
-    : recommendedLessons);
+    : recommendedLessons as RecommendedLesson[]);
 
   // Dynamically generate a score trend leading up to the current real score
   const currentRealScore = profile?.skillDNA?.score ?? 0;

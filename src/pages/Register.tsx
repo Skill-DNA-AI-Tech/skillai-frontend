@@ -64,7 +64,16 @@ const Register = () => {
     
     // Simulate API delay for creating the deep profile
     setTimeout(() => {
-      login('student');
+      login(
+        {
+          _id: window.crypto?.randomUUID?.() ?? `${formData.email}-${Date.now()}`,
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          email: formData.email,
+          role: 'student',
+          avatarUrl: avatarPreview ?? undefined,
+        },
+        window.crypto?.randomUUID?.() ?? `${formData.email}-${Date.now()}`
+      );
       navigate('/dashboard');
     }, 1500);
   };

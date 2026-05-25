@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type Role = 'student' | 'recruiter' | 'admin' | null;
+export type Role = 'student' | 'recruiter' | 'admin' | 'employee' | null;
 
 export interface UserProfile {
   _id: string;
@@ -8,6 +8,7 @@ export interface UserProfile {
   email: string;
   role: Exclude<Role, null>;
   avatarUrl?: string;
+  requiresPasswordChange?: boolean;
 }
 
 interface AuthContextType {

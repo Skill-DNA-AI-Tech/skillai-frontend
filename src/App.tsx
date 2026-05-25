@@ -6,16 +6,23 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const Auth = lazy(() => import('./pages/Auth'));
+const CareerTwin = lazy(() => import('./pages/CareerTwin'));
 const Register = lazy(() => import('./pages/Register'));
 const Community = lazy(() => import('./pages/Community'));
+const DynamicInterviewPage = lazy(() => import('./pages/DynamicInterviewPage'));
 const Home = lazy(() => import('./pages/Home'));
 const InterviewCoach = lazy(() => import('./pages/InterviewCoach'));
 const Jobs = lazy(() => import('./pages/Jobs'));
 const LearningHub = lazy(() => import('./pages/LearningHub'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const QuestionBankDashboard = lazy(() => import('./pages/QuestionBankDashboard'));
 const RecruiterPortal = lazy(() => import('./pages/RecruiterPortal'));
 const ReportCard = lazy(() => import('./pages/ReportCard'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentProfilePage = lazy(() => import('./pages/StudentProfilePage'));
+const CertificatePage = lazy(() => import('./pages/CertificatePage'));
+const CertificateVerifyPage = lazy(() => import('./pages/CertificateVerifyPage'));
+const CertificateManagementPage = lazy(() => import('./pages/CertificateManagementPage'));
 
 const RouteFallback = () => (
   <motion.div 
@@ -54,14 +61,22 @@ const AnimatedRoutes = () => {
         <Route element={<AppShell />}>
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute allowedRoles={['student']}><StudentProfilePage /></ProtectedRoute>} />
+          <Route path="/profile/:id" element={<ProtectedRoute allowedRoles={['student', 'recruiter', 'admin']}><StudentProfilePage /></ProtectedRoute>} />
+          <Route path="/career-twin" element={<ProtectedRoute allowedRoles={['student']}><CareerTwin /></ProtectedRoute>} />
           <Route path="/learning" element={<ProtectedRoute allowedRoles={['student']}><LearningHub /></ProtectedRoute>} />
           <Route path="/interview" element={<ProtectedRoute allowedRoles={['student']}><InterviewCoach /></ProtectedRoute>} />
+          <Route path="/interview/dynamic" element={<ProtectedRoute allowedRoles={['student']}><DynamicInterviewPage /></ProtectedRoute>} />
           <Route path="/report/:id" element={<ReportCard />} />
           <Route path="/jobs" element={<ProtectedRoute allowedRoles={['student', 'recruiter']}><Jobs /></ProtectedRoute>} />
           <Route path="/recruiter" element={<ProtectedRoute allowedRoles={['recruiter']}><RecruiterPortal /></ProtectedRoute>} />
           <Route path="/recruiter/report/:token" element={<ProtectedRoute allowedRoles={['recruiter']}><ReportCard /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['admin']}><QuestionBankDashboard /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+          <Route path="/certificates" element={<ProtectedRoute allowedRoles={['student']}><CertificateManagementPage /></ProtectedRoute>} />
+          <Route path="/certificate/:certificateId" element={<ProtectedRoute allowedRoles={['student']}><CertificatePage /></ProtectedRoute>} />
+          <Route path="/certificate/verify/:certificateId" element={<CertificateVerifyPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<NotFound />} />

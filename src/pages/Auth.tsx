@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 
 const Auth = () => {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password'>('login');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'student' | 'recruiter' | 'admin'>('student');
   const [email, setEmail] = useState('');
@@ -17,13 +17,14 @@ const Auth = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tempToken, setTempToken] = useState<string | null>(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const navigateToRole = (userRole: 'student' | 'recruiter' | 'admin') => {
+  const navigateToRole = (userRole: 'student' | 'recruiter' | 'admin' | 'employee') => {
     if (userRole === 'recruiter') navigate('/recruiter');
-    else if (userRole === 'admin') navigate('/admin');
+    else if (userRole === 'admin' || userRole === 'employee') navigate('/admin');
     else navigate('/dashboard');
   };
 
@@ -34,6 +35,26 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      if (mode === 'change_temp_password') {
+        const response = await apiRequest<any>('/auth/change-temp-password', {
+          method: 'POST',
+          body: JSON.stringify({ newPassword }),
+          token: tempToken || undefined,
+        });
+
+        setMessage('Password updated successfully! Logging you in...');
+        login({ 
+          _id: response._id, 
+          name: response.name, 
+          email: response.email, 
+          role: response.role, 
+          avatarUrl: response.avatarUrl 
+        }, tempToken!);
+        
+        navigateToRole(response.role);
+        return;
+      }
+
       let path = '/auth/login';
       let payload: Record<string, any> = { email, password, role, name };
 
@@ -53,6 +74,14 @@ const Auth = () => {
       });
 
       if (mode === 'login' || mode === 'register') {
+        if (response.requiresPasswordChange) {
+          setTempToken(response.token);
+          setMode('change_temp_password');
+          setNewPassword('');
+          setMessage('Temporary password detected. Please choose a new secure password.');
+          return;
+        }
+
         login({ _id: response._id, name: response.name, email: response.email, role: response.role, avatarUrl: response.avatarUrl }, response.token);
         navigateToRole(response.role);
       } else if (mode === 'forgot') {
@@ -141,29 +170,31 @@ const Auth = () => {
             </div>
 
             <form className="grid gap-5" onSubmit={handleSubmit}>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMode('login')}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'login' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode('register')}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'register' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                >
-                  Register
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode('forgot')}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'forgot' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                >
-                  Forgot Password
-                </button>
-              </div>
+              {mode !== 'change_temp_password' && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMode('login')}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'login' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+                  >
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('register')}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'register' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+                  >
+                    Register
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('forgot')}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'forgot' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+                  >
+                    Forgot Password
+                  </button>
+                </div>
+              )}
 
               {mode === 'register' && (
                 <label className="grid gap-2 text-sm font-medium text-slate-300">
@@ -178,17 +209,19 @@ const Auth = () => {
                 </label>
               )}
 
-              <label className="grid gap-2 text-sm font-medium text-slate-300">
-                Email Address
-                <input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                  type="email"
-                  placeholder="name@example.com"
-                  required
-                />
-              </label>
+              {mode !== 'change_temp_password' && (
+                <label className="grid gap-2 text-sm font-medium text-slate-300">
+                  Email Address
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    type="email"
+                    placeholder="name@example.com"
+                    required
+                  />
+                </label>
+              )}
 
               {(mode === 'login' || mode === 'register') && (
                 <label className="grid gap-2 text-sm font-medium text-slate-300">
@@ -229,6 +262,20 @@ const Auth = () => {
                     />
                   </label>
                 </>
+              )}
+
+              {mode === 'change_temp_password' && (
+                <label className="grid gap-2 text-sm font-medium text-slate-300">
+                  New Secure Password
+                  <input
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    type="password"
+                    placeholder="Enter new custom password"
+                    required
+                  />
+                </label>
               )}
 
               {mode === 'register' && (
@@ -274,7 +321,7 @@ const Auth = () => {
                   <span className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                   <span className="relative z-10 flex items-center gap-2">
                     <LogIn className="h-5 w-5 transition-transform group-hover:scale-110" />
-                    {loading ? 'Processing...' : mode === 'register' ? 'Create Account' : mode === 'forgot' ? 'Send OTP' : mode === 'reset' ? 'Reset Password' : 'Sign In'}
+                    {loading ? 'Processing...' : mode === 'register' ? 'Create Account' : mode === 'forgot' ? 'Send OTP' : mode === 'reset' ? 'Reset Password' : mode === 'change_temp_password' ? 'Update Password' : 'Sign In'}
                   </span>
                 </motion.button>
 

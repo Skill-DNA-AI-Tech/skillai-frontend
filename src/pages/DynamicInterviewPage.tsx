@@ -1,7 +1,7 @@
-import { Play, RotateCcw, Radio, Loader2, Send, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Play, RotateCcw, Radio, Loader2, Send, CheckCircle2, TrendingUp, Award, Download, Share2, ExternalLink, Copy } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { apiRequest } from '../lib/api';
+import { useParams, useLocation } from 'react-router-dom';
+import { apiRequest, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SectionHeader from '../components/SectionHeader';
 import MetricCard from '../components/MetricCard';
@@ -19,12 +19,36 @@ const DynamicInterviewPage = () => {
   const [progress, setProgress] = useState(0);
   const [report, setReport] = useState<any>(null);
   
+  const [createdReport, setCreatedReport] = useState<any>(null);
+  const [claimingCertificate, setClaimingCertificate] = useState(false);
+  const [claimedCertificate, setClaimedCertificate] = useState<any>(null);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+  
+  const location = useLocation();
   const [setupForm, setSetupForm] = useState({
     field: 'Computer Science',
     topic: 'JavaScript',
     difficulty: 'Medium',
     questionCount: 5,
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const topicParam = params.get('topic');
+    const fieldParam = params.get('field');
+    const difficultyParam = params.get('difficulty');
+
+    if (topicParam || fieldParam || difficultyParam) {
+      setSetupForm((prev) => ({
+        ...prev,
+        topic: topicParam || prev.topic,
+        field: fieldParam || prev.field,
+        difficulty: difficultyParam || prev.difficulty,
+      }));
+    }
+  }, [location]);
 
   const startInterview = async () => {
     try {
@@ -84,6 +108,45 @@ const DynamicInterviewPage = () => {
     }
   };
 
+  const initializeReportCard = async (reportData: any) => {
+    try {
+      let profile: any = null;
+      try {
+        profile = await apiRequest<any>('/profiles/me', { token });
+      } catch (err: any) {
+        if (err.message?.includes('not found') || err.message?.includes('404')) {
+          profile = await apiRequest<any>('/profiles', {
+            method: 'POST',
+            body: JSON.stringify({
+              domain: reportData.session?.field || 'Computer Science',
+              branch: reportData.session?.topic || 'General',
+              skills: [reportData.session?.topic || 'Software Development'],
+              college: 'SkillDNA Academy',
+              bio: 'Active learner in technology.',
+            }),
+            token,
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      if (profile) {
+        const savedReport = await apiRequest<any>('/reports', {
+          method: 'POST',
+          body: JSON.stringify({
+            profileId: profile._id,
+            interviewScore: Math.round(reportData.averageScores?.averageCorrectness || 0),
+          }),
+          token,
+        });
+        setCreatedReport(savedReport);
+      }
+    } catch (error) {
+      console.error('Failed to initialize report card:', error);
+    }
+  };
+
   const completeInterview = async (sid: string) => {
     try {
       const completionRes = await apiRequest<any>(`/questions/interview/complete/${sid}`, {
@@ -94,8 +157,80 @@ const DynamicInterviewPage = () => {
       const reportData = await apiRequest<any>(`/questions/interview/report/${sid}`, { token });
       setReport(reportData);
       setMode('completed');
+      await initializeReportCard(reportData);
     } catch (error) {
       console.error('Failed to complete interview:', error);
+    }
+  };
+
+  const claimCertificate = async () => {
+    if (!report) return;
+    setClaimingCertificate(true);
+    try {
+      const scores = report.averageScores;
+      const certRes = await apiRequest<any>('/certificates/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          careerPath: report.session?.topic || 'Developer',
+          technicalScore: Math.round(scores.averageTechnical || 80),
+          communicationScore: Math.round(scores.averageCommunication || 80),
+          problemSolvingScore: Math.round(scores.averageCorrectness || 80),
+          confidenceScore: Math.round((scores.averageCommunication + scores.averageTechnical) / 2 || 80),
+          sessionsCompleted: 1,
+          strengths: report.strengthAreas || [],
+          improvements: report.weakAreas || [],
+        }),
+        token,
+      });
+      setClaimedCertificate(certRes.certificate);
+      alert('Certificate claimed successfully!');
+    } catch (error: any) {
+      alert('Failed to claim certificate: ' + error.message);
+    } finally {
+      setClaimingCertificate(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!claimedCertificate) return;
+    try {
+      const response = await api.get<Blob>(`/certificates/${claimedCertificate.certificateId}/pdf`, {
+        responseType: 'blob',
+        token,
+      });
+      const file = new Blob([response.data], { type: 'application/pdf' });
+      const fileURL = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = fileURL;
+      link.download = `SkillDNA-Certificate-${claimedCertificate.certificateId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error: any) {
+      alert('Failed to download PDF: ' + error.message);
+    }
+  };
+
+  const handleShareReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createdReport || !shareEmail.trim()) return;
+    setSharing(true);
+    setShareSuccess(false);
+    try {
+      await apiRequest<any>(`/reports/${createdReport._id}/share`, {
+        method: 'POST',
+        body: JSON.stringify({
+          recruiterEmail: shareEmail,
+          company: 'Recruiter Partner',
+        }),
+        token,
+      });
+      setShareSuccess(true);
+      setShareEmail('');
+    } catch (error: any) {
+      alert('Failed to share report: ' + error.message);
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -348,14 +483,148 @@ const DynamicInterviewPage = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <button
-            onClick={resetInterview}
-            className="px-6 py-3 rounded-lg border border-white/10 text-white hover:bg-white/10 flex items-center justify-center gap-2 transition"
-          >
-            <RotateCcw className="h-5 w-5" />
-            Start New Interview
-          </button>
+          {/* Action and Certificate Claiming Area */}
+          <div className="grid gap-6 md:grid-cols-2 mt-2">
+            {/* Verified Report Card Section */}
+            <div className="rounded-lg border border-white/10 bg-slate-900/50 p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5 text-cyan-400" />
+                  Verified SkillDNA Report Card
+                </h3>
+                <p className="text-xs text-slate-400 mb-4">
+                  A public report card with granular performance analysis, AI comments, and verified scores.
+                </p>
+
+                {createdReport ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded bg-slate-950/50 border border-white/5">
+                      <div>
+                        <div className="text-xs text-slate-500">Verification ID</div>
+                        <div className="text-sm font-mono text-cyan-300 font-semibold">{createdReport.verificationId}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(createdReport.publicUrl);
+                          alert('Verification link copied to clipboard!');
+                        }}
+                        className="p-2 rounded hover:bg-white/5 text-slate-400 hover:text-white"
+                        title="Copy Verification Link"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <a
+                      href={`/report/${createdReport.verificationId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View Live Report Card
+                    </a>
+
+                    {/* Share Form */}
+                    <form onSubmit={handleShareReport} className="mt-4 pt-4 border-t border-white/5">
+                      <label className="block text-xs font-medium text-slate-400 mb-2">Share with Recruiters</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          placeholder="recruiter@company.com"
+                          value={shareEmail}
+                          onChange={(e) => setShareEmail(e.target.value)}
+                          className="flex-1 px-3 py-1.5 rounded border border-white/10 bg-slate-950 text-white text-xs placeholder-slate-500 focus:border-cyan-500"
+                          required
+                        />
+                        <button
+                          type="submit"
+                          disabled={sharing}
+                          className="px-4 py-1.5 rounded bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
+                        >
+                          {sharing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+                          Share
+                        </button>
+                      </div>
+                      {shareSuccess && (
+                        <p className="text-xs text-emerald-400 mt-1">✓ Shared with recruiter successfully!</p>
+                      )}
+                    </form>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-slate-400 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                    Generating verified report card...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Certificate Section */}
+            <div className="rounded-lg border border-white/10 bg-slate-900/50 p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
+                  <Award className="h-5 w-5 text-amber-400" />
+                  Verifiable Skill Certificate
+                </h3>
+                <p className="text-xs text-slate-400 mb-4">
+                  Earn a secure, cryptographically verifiable badge and PDF document representing your expertise.
+                </p>
+
+                {claimedCertificate ? (
+                  <div className="space-y-4">
+                    <div className="p-3 rounded bg-amber-500/10 border border-amber-500/20 text-amber-200">
+                      <div className="text-xs">Certificate Claimed!</div>
+                      <div className="text-sm font-semibold mt-1 font-mono text-amber-300">{claimedCertificate.certificateId}</div>
+                    </div>
+
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="w-full py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download PDF Certificate
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-3 rounded bg-slate-950/50 border border-white/5 text-slate-400 text-xs">
+                      Claim your verified certificate once you complete the interview with passing grades.
+                    </div>
+
+                    <button
+                      onClick={claimCertificate}
+                      disabled={claimingCertificate}
+                      className="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50"
+                    >
+                      {claimingCertificate ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Claiming Certificate...
+                        </>
+                      ) : (
+                        <>
+                          <Award className="h-4 w-4" />
+                          Claim Verifiable Certificate
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Reset Interview Button */}
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={resetInterview}
+              className="px-8 py-3 rounded-lg border border-white/10 text-white hover:bg-white/10 hover:border-white/20 flex items-center justify-center gap-2 transition text-sm font-semibold"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Start New Interview
+            </button>
+          </div>
         </div>
       )}
     </main>

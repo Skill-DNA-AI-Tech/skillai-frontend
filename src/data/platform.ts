@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  BrainCircuit,
   BookOpen,
   BriefcaseBusiness,
   Building2,
@@ -180,6 +181,7 @@ export const interviewTypes = [
 export const navItems = [
   { label: 'Home', href: '/', icon: GraduationCap },
   { label: 'Student', href: '/dashboard', icon: LineChart },
+  { label: 'Career Twin', href: '/career-twin', icon: BrainCircuit },
   { label: 'Learning', href: '/learning', icon: BookOpen },
   { label: 'Interview', href: '/interview', icon: Video },
   { label: 'Jobs', href: '/jobs', icon: BriefcaseBusiness },
