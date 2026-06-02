@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { navItems } from '../data/platform';
 import { useAuth } from '../context/AuthContext';
 import Footer from './Footer';
+import { roleLabel } from '../lib/rbac';
 
 const AppShell = () => {
   const [open, setOpen] = useState(false);
@@ -15,13 +16,16 @@ const AppShell = () => {
     if (!role) {
       return ['Home', 'Community'].includes(item.label);
     }
-    if (role === 'recruiter') {
-      return ['Home', 'Recruiter', 'Jobs', 'Community'].includes(item.label);
+    if (role === 'HR') {
+      return ['Home', 'HR', 'Jobs', 'Community'].includes(item.label);
     }
-    if (role === 'admin' || role === 'employee') {
+    if (role === 'MAIN_ADMIN') {
+      return ['Home', 'Main Admin', 'Community'].includes(item.label);
+    }
+    if (role === 'ADMIN') {
       return ['Home', 'Admin', 'Community'].includes(item.label);
     }
-    return ['Home', 'Student', 'Certificates', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
+    return ['Home', 'Student', 'Scorecards', 'Certificates', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
 
   const handleLogout = () => {
@@ -92,7 +96,7 @@ const AppShell = () => {
                     <User className="h-3 w-3 font-bold" />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-slate-200 capitalize">{role}</p>
+                    <p className="text-sm font-medium text-slate-200">{roleLabel(role)}</p>
                     {user?.name && <p className="text-xs text-slate-400">{user.name}</p>}
                   </div>
                 </div>

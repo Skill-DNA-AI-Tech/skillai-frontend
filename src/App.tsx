@@ -4,7 +4,7 @@ import { Route, Routes, Navigate, useLocation, BrowserRouter } from 'react-route
 import AppShell from './components/AppShell';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboardV2'));
 const Auth = lazy(() => import('./pages/Auth'));
 const CareerTwin = lazy(() => import('./pages/CareerTwin'));
 const Register = lazy(() => import('./pages/Register'));
@@ -19,6 +19,7 @@ const QuestionBankDashboard = lazy(() => import('./pages/QuestionBankDashboard')
 const RecruiterPortal = lazy(() => import('./pages/RecruiterPortal'));
 const ReportCard = lazy(() => import('./pages/ReportCard'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentScorecardPage = lazy(() => import('./pages/StudentScorecardPage'));
 const StudentProfilePage = lazy(() => import('./pages/StudentProfilePage'));
 const CertificatePage = lazy(() => import('./pages/CertificatePage'));
 const CertificateVerifyPage = lazy(() => import('./pages/CertificateVerifyPage'));
@@ -67,7 +68,9 @@ const AnimatedRoutes = () => {
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN']}><QuestionBankDashboard /></ProtectedRoute>} />
           <Route path="/hr" element={<ProtectedRoute allowedRoles={['HR']}><HrDashboard /></ProtectedRoute>} />
+          <Route path="/recruiter" element={<Navigate to="/hr" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/scorecards" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentScorecardPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/profile/:id" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN']}><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/career-twin" element={<ProtectedRoute allowedRoles={['STUDENT']}><CareerTwin /></ProtectedRoute>} />
