@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type Role = 'student' | 'recruiter' | 'admin' | 'employee' | null;
+export type Role = 'STUDENT' | 'HR' | 'ADMIN' | 'MAIN_ADMIN' | 'student' | 'recruiter' | 'admin' | 'employee' | null;
 
 export interface UserProfile {
   _id: string;
@@ -23,6 +23,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'skilldna_auth';
 
+const normalizeRole = (role?: string | null): Role => {
+  if (!role) return null;
+  const original = role.trim();
+  const upper = original.toUpperCase();
+  if (original === 'student' || upper === 'STUDENT') return 'STUDENT';
+  if (original === 'admin' || original === 'employee' || original === 'staff' || upper === 'ADMIN') return 'ADMIN';
+  if (original === 'recruiter' || upper === 'HR') return 'HR';
+  if (upper === 'MAIN_ADMIN') return 'MAIN_ADMIN';
+  return 'STUDENT';
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | undefined>(undefined);
@@ -32,7 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as { user: UserProfile; token: string };
-        setUser(parsed.user);
+        const normalizedRole = normalizeRole(parsed.user.role);
+        setUser({ ...parsed.user, role: normalizedRole as Exclude<Role, null> });
         setToken(parsed.token);
       } catch {
         localStorage.removeItem(STORAGE_KEY);
@@ -41,9 +53,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (newUser: UserProfile, newToken: string) => {
-    setUser(newUser);
+    const normalizedRole = normalizeRole(newUser.role);
+    const userWithNormalizedRole = { ...newUser, role: normalizedRole as Exclude<Role, null> };
+    setUser(userWithNormalizedRole);
     setToken(newToken);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: newUser, token: newToken }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: userWithNormalizedRole, token: newToken }));
   };
 
   const logout = () => {
@@ -66,3 +80,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
