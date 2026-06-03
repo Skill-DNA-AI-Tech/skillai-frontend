@@ -164,6 +164,47 @@ const StudentDashboard = () => {
       setAiAnalysis(data);
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 3000);
+
+      // Save profile to backend DB
+      const parseAcademicMarks = (marksStr: string): number => {
+        const parsed = parseFloat(marksStr);
+        if (isNaN(parsed)) return 75;
+        if (parsed <= 10) return parsed * 10;
+        return parsed;
+      };
+
+      const profilePayload = {
+        degree: deepProfile.domain === 'cs' ? 'B.Tech' : 
+                deepProfile.domain === 'medical' ? 'B.Pharm' : 
+                deepProfile.domain === 'commerce' ? 'MBA' : 
+                deepProfile.domain === 'arts' ? 'LLB' : 'B.Sc',
+        branch: deepProfile.preferredRole || 'Software Engineering',
+        college: deepProfile.institute || 'Unknown Institute',
+        semester: deepProfile.semester || 'Final Year',
+        domain: deepProfile.domain,
+        mobile: deepProfile.phone,
+        location: deepProfile.location,
+        skills: deepProfile.keySkills ? deepProfile.keySkills.split(',').map(s => s.trim()) : [],
+        preferredRoles: deepProfile.preferredRole ? [deepProfile.preferredRole] : [],
+        portfolioLinks: deepProfile.portfolioUrl ? [deepProfile.portfolioUrl] : [],
+        certifications: deepProfile.certifications ? deepProfile.certifications.split(',').map(c => c.trim()) : [],
+        resumeUrl: deepProfile.resume || '',
+        academicMarks: deepProfile.finalMarks || '',
+        academicLevel: parseAcademicMarks(deepProfile.finalMarks)
+      };
+
+      if (token) {
+        try {
+          const profileData = await apiRequest<StudentProfile>('/profiles/me', {
+            method: 'PUT',
+            body: JSON.stringify(profilePayload),
+            token
+          });
+          setProfile(profileData);
+        } catch (dbErr) {
+          console.error("Failed to save profile to database:", dbErr);
+        }
+      }
     } catch (err) {
       console.error("AI Analysis failed:", err);
       // Even if AI fails, let them pass
@@ -185,8 +226,18 @@ const StudentDashboard = () => {
     setError(null);
 
     apiRequest<StudentProfile>('/profiles/me', { token })
-      .then((data) => setProfile(data))
-      .catch((err) => setError(err?.message || 'Unable to load profile data.'))
+      .then((data) => {
+        setProfile(data);
+        if (data) {
+          setShowProfileModal(false);
+        }
+      })
+      .catch((err) => {
+        // Suppress Profile not found 404 errors as they are expected for new profiles
+        if (err?.message !== 'Profile not found') {
+          setError(err?.message || 'Unable to load profile data.');
+        }
+      })
       .finally(() => setLoading(false));
 
     apiRequest<any>('/reports/me/scorecards', { token })
