@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
+import { apiRequest } from '../lib/api';
 
 const Register = () => {
   const { login } = useAuth();
@@ -62,20 +63,58 @@ const Register = () => {
 
     setShowSuccess(true);
     
-    // Simulate API delay for creating the deep profile
-    setTimeout(() => {
-      login(
-        {
-          _id: window.crypto?.randomUUID?.() ?? `${formData.email}-${Date.now()}`,
-          name: `${formData.firstName} ${formData.lastName}`.trim(),
-          email: formData.email,
-          role: 'STUDENT',
-          avatarUrl: avatarPreview ?? undefined,
-        },
-        window.crypto?.randomUUID?.() ?? `${formData.email}-${Date.now()}`
-      );
+    // Call backend registration API
+    apiRequest<any>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        email: formData.email,
+        password: formData.password,
+        role: 'student'
+      })
+    })
+    .then(async (response) => {
+      // Login with real token
+      login({
+        _id: response._id,
+        name: response.name,
+        email: response.email,
+        role: response.role,
+        avatarUrl: avatarPreview ?? undefined,
+      }, response.token, response.refreshToken);
+
+      // Create initial profile in backend DB
+      try {
+        const profilePayload = {
+          degree: formData.educationBg === 'cs' ? 'B.Tech' : 
+                  formData.educationBg === 'medical' ? 'B.Pharm' : 
+                  formData.educationBg === 'commerce' ? 'MBA' : 
+                  formData.educationBg === 'arts' ? 'LLB' : 'B.Sc',
+          branch: formData.specialty || 'Software Engineering',
+          college: 'Unknown College',
+          semester: formData.semester || '1st_year',
+          domain: formData.educationBg,
+          skills: formData.interest ? [formData.interest] : [],
+          preferredRoles: formData.careerGoal ? [formData.careerGoal] : [],
+        };
+
+        await apiRequest('/profiles/me', {
+          method: 'PUT',
+          body: JSON.stringify(profilePayload),
+          token: response.token
+        });
+      } catch (dbErr) {
+        console.error("Failed to save initial profile on registration:", dbErr);
+      }
+
       navigate('/dashboard');
-    }, 1500);
+    })
+    .catch((err) => {
+      setShowSuccess(false);
+      setShowError(true);
+      console.error("Registration error:", err);
+      alert(err.message || "Failed to register account.");
+    });
   };
 
   const containerVariants = {
