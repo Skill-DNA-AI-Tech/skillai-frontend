@@ -21,10 +21,11 @@ type ApiConfig = RequestOptions & {
 };
 
 const normalizeApiPath = (path: string) => (path.startsWith('/api/') ? path.slice(4) : path);
+const STORAGE_KEY = 'skilldna_auth';
 
 const readStoredToken = () => {
   try {
-    const auth = localStorage.getItem('skilldna_auth');
+    const auth = localStorage.getItem(STORAGE_KEY);
     if (auth) {
       const parsed = JSON.parse(auth);
       return parsed.token as string | undefined;
@@ -36,7 +37,49 @@ const readStoredToken = () => {
   return undefined;
 };
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+const readStoredRefreshToken = () => {
+  try {
+    const auth = localStorage.getItem(STORAGE_KEY);
+    if (auth) {
+      const parsed = JSON.parse(auth);
+      return parsed.refreshToken as string | undefined;
+    }
+  } catch {
+    // Silently ignore parsing errors
+  }
+
+  return undefined;
+};
+
+const refreshAccessToken = async () => {
+  const refreshToken = readStoredRefreshToken();
+  if (!refreshToken) return undefined;
+
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    localStorage.removeItem(STORAGE_KEY);
+    return undefined;
+  }
+
+  const nextAuth = await response.json();
+  const saved = localStorage.getItem(STORAGE_KEY);
+  const parsed = saved ? JSON.parse(saved) : {};
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    ...parsed,
+    user: nextAuth,
+    token: nextAuth.token,
+    refreshToken: nextAuth.refreshToken ?? refreshToken,
+  }));
+
+  return nextAuth.token as string | undefined;
+};
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}, retryOnUnauthorized = true): Promise<T> {
   const headers = new Headers(options.headers);
   const isFormData = options.body instanceof FormData;
 
@@ -64,6 +107,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const json = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    if (response.status === 401 && retryOnUnauthorized) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        return apiRequest<T>(path, { ...options, token: refreshedToken }, false);
+      }
+    }
+
     const message = json?.message || response.statusText || `API request failed with ${response.status}`;
     throw new Error(message);
   }
@@ -71,7 +121,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return json as T;
 }
 
-const requestWithData = async <T>(path: string, config: ApiConfig = {}, method = 'GET'): Promise<{ data: T }> => {
+const requestWithData = async <T>(path: string, config: ApiConfig = {}, method = 'GET', retryOnUnauthorized = true): Promise<{ data: T }> => {
   const headers = new Headers(config.headers);
   const token = config.token ?? readStoredToken();
 
@@ -92,6 +142,13 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
   });
 
   if (!response.ok) {
+    if (response.status === 401 && retryOnUnauthorized) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        return requestWithData<T>(path, { ...config, token: refreshedToken }, method, false);
+      }
+    }
+
     let errorBody: any = null;
     try {
       errorBody = await response.json();

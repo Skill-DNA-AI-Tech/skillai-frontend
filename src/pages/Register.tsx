@@ -69,7 +69,7 @@ const Register = () => {
           _id: window.crypto?.randomUUID?.() ?? `${formData.email}-${Date.now()}`,
           name: `${formData.firstName} ${formData.lastName}`.trim(),
           email: formData.email,
-          role: 'student',
+          role: 'STUDENT',
           avatarUrl: avatarPreview ?? undefined,
         },
         window.crypto?.randomUUID?.() ?? `${formData.email}-${Date.now()}`

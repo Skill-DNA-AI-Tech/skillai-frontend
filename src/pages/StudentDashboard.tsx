@@ -78,6 +78,9 @@ const StudentDashboard = () => {
   const [aiAnalysis, setAiAnalysis] = useState<DashboardAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
+  const [scorecard, setScorecard] = useState<any>(null);
+  const [scorecardLoading, setScorecardLoading] = useState(false);
+  
   // Profile Setup Modal State
   const [showProfileModal, setShowProfileModal] = useState(true); // Defaults to true to show popup on login
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -178,12 +181,18 @@ const StudentDashboard = () => {
     }
 
     setLoading(true);
+    setScorecardLoading(true);
     setError(null);
 
     apiRequest<StudentProfile>('/profiles/me', { token })
       .then((data) => setProfile(data))
       .catch((err) => setError(err?.message || 'Unable to load profile data.'))
       .finally(() => setLoading(false));
+
+    apiRequest<any>('/reports/me/scorecards', { token })
+      .then((data) => setScorecard(data))
+      .catch((err) => console.error('Unable to load scorecard', err))
+      .finally(() => setScorecardLoading(false));
   }, [token]);
 
   const metrics: DashboardMetric[] = aiAnalysis?.metrics || (profile
@@ -540,6 +549,76 @@ const StudentDashboard = () => {
           </motion.div>
         ))}
       </motion.section>
+
+      {/* Dynamic Scorecard Section */}
+      {scorecard && scorecard.latest && (
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mt-8 rounded-2xl border border-white/5 bg-gradient-to-r from-cyan-900/20 to-blue-900/20 p-6 shadow-xl backdrop-blur-sm"
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <FileBadge className="h-6 w-6 text-cyan-400" />
+                Latest Interview Scorecard
+              </h3>
+              <p className="text-sm text-slate-400 mt-1">Your comprehensive performance report from the last AI evaluation.</p>
+            </div>
+            {scorecard.pdfReportUrl && (
+              <Link
+                to="/scorecards"
+                className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-400 to-teal-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(52,211,153,0.4)] hover:scale-105 active:scale-95"
+              >
+                <Upload className="h-4 w-4 transition-transform group-hover:-translate-y-1" />
+                View Scorecards
+              </Link>
+            )}
+          </div>
+          
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl bg-slate-900/50 p-4 border border-white/5">
+              <p className="text-sm text-slate-400 mb-1">Overall Score</p>
+              <div className="text-3xl font-bold text-cyan-400">{scorecard.latest.skillDNAScore || scorecard.latest.overallScore || 0}<span className="text-lg text-slate-500">/100</span></div>
+            </div>
+            <div className="rounded-xl bg-slate-900/50 p-4 border border-white/5">
+              <p className="text-sm text-slate-400 mb-1">Technical Skills</p>
+              <div className="text-3xl font-bold text-blue-400">{scorecard.latest.technicalScore || 0}<span className="text-lg text-slate-500">/100</span></div>
+            </div>
+            <div className="rounded-xl bg-slate-900/50 p-4 border border-white/5">
+              <p className="text-sm text-slate-400 mb-1">Communication</p>
+              <div className="text-3xl font-bold text-emerald-400">{scorecard.latest.communicationScore || 0}<span className="text-lg text-slate-500">/100</span></div>
+            </div>
+            <div className="rounded-xl bg-slate-900/50 p-4 border border-white/5">
+              <p className="text-sm text-slate-400 mb-1">Confidence</p>
+              <div className="text-3xl font-bold text-amber-400">{scorecard.latest.confidenceScore || 0}<span className="text-lg text-slate-500">/100</span></div>
+            </div>
+          </div>
+
+          {(scorecard.feedback || (scorecard.strengths?.length > 0)) && (
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <div className="rounded-xl bg-slate-900/50 p-5 border border-white/5">
+                <h4 className="font-semibold text-white mb-3">AI Feedback</h4>
+                <p className="text-sm text-slate-300 leading-relaxed">{scorecard.feedback || scorecard.latest.aiRecommendationSummary}</p>
+              </div>
+              <div className="rounded-xl bg-slate-900/50 p-5 border border-white/5">
+                <h4 className="font-semibold text-white mb-3">Strengths & Weaknesses</h4>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {(scorecard.strengths || scorecard.latest.strengths || []).map((s: string, i: number) => (
+                    <span key={i} className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 border border-emerald-500/20">{s}</span>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(scorecard.weaknesses || scorecard.latest.weaknesses || []).map((w: string, i: number) => (
+                    <span key={i} className="rounded-full bg-amber-500/10 px-3 py-1 text-xs text-amber-400 border border-amber-500/20">{w}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.section>
+      )}
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <motion.div

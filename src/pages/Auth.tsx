@@ -5,11 +5,12 @@ import { motion } from 'framer-motion';
 import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
+import { roleHome } from '../lib/rbac';
 
 const Auth = () => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password'>('login');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'student' | 'recruiter' | 'admin'>('student');
+  const [role, setRole] = useState<'student' | 'admin'>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -18,15 +19,12 @@ const Auth = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
+  const [tempRefreshToken, setTempRefreshToken] = useState<string | null>(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const navigateToRole = (userRole: 'student' | 'recruiter' | 'admin' | 'employee') => {
-    if (userRole === 'recruiter') navigate('/recruiter');
-    else if (userRole === 'admin' || userRole === 'employee') navigate('/admin');
-    else navigate('/dashboard');
-  };
+  const navigateToRole = (userRole: string) => navigate(roleHome(userRole));
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,7 +47,7 @@ const Auth = () => {
           email: response.email, 
           role: response.role, 
           avatarUrl: response.avatarUrl 
-        }, tempToken!);
+        }, tempToken!, response.refreshToken ?? tempRefreshToken ?? undefined);
         
         navigateToRole(response.role);
         return;
@@ -74,15 +72,23 @@ const Auth = () => {
       });
 
       if (mode === 'login' || mode === 'register') {
+        if (!response.token) {
+          setMessage(response.message || 'Account request received. Please wait for approval before signing in.');
+          setMode('login');
+          setPassword('');
+          return;
+        }
+
         if (response.requiresPasswordChange) {
           setTempToken(response.token);
+          setTempRefreshToken(response.refreshToken ?? null);
           setMode('change_temp_password');
           setNewPassword('');
           setMessage('Temporary password detected. Please choose a new secure password.');
           return;
         }
 
-        login({ _id: response._id, name: response.name, email: response.email, role: response.role, avatarUrl: response.avatarUrl }, response.token);
+        login({ _id: response._id, name: response.name, email: response.email, role: response.role, status: response.status, avatarUrl: response.avatarUrl }, response.token, response.refreshToken);
         navigateToRole(response.role);
       } else if (mode === 'forgot') {
         setMessage('OTP sent to your email. Enter it below to reset your password.');
@@ -119,13 +125,13 @@ const Auth = () => {
           <SectionHeader
             eyebrow="Authentication"
             title="Sign in to your specific role portal"
-            description="Access customized dashboards tailored specifically for students, recruiters, and administrators with live backend authentication."
+            description="Access customized dashboards for Main Admin, Admin, HR, and Student users with live backend authentication."
           />
         </motion.div>
 
         <motion.div className="mt-10 grid gap-5" variants={containerVariants}>
           {[
-            { icon: ShieldCheck, title: 'Role-based access', text: 'Auto-redirects to Student, Recruiter, or Admin portals.' },
+            { icon: ShieldCheck, title: 'Role-based access', text: 'Auto-redirects to Student, HR, Admin, or Main Admin portals.' },
             { icon: Mail, title: 'Secure Verification', text: 'Email OTP registration and profile verification.' },
             { icon: KeyRound, title: 'Live backend auth', text: 'Login and registration use real Node API endpoints.' },
           ].map((item) => (
@@ -165,7 +171,7 @@ const Auth = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">Welcome back</h2>
-                <p className="text-sm text-slate-400">Use your account to access live student, recruiter, and admin screens.</p>
+                <p className="text-sm text-slate-400">Use your account to access live student, HR, and admin screens.</p>
               </div>
             </div>
 
@@ -288,13 +294,13 @@ const Auth = () => {
                       className="h-11 w-full appearance-none rounded-lg border-white/10 bg-slate-950/50 px-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer"
                     >
                       <option value="student">Student</option>
-                      <option value="recruiter">Recruiter</option>
                       <option value="admin">Admin</option>
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-cyan-400">
                       <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
                     </div>
                   </div>
+                  <p className="text-xs text-slate-500">HR accounts are created by Admin users. Admin signups require Main Admin approval.</p>
                 </label>
               )}
 
