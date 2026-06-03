@@ -25,7 +25,7 @@ const AppShell = () => {
     if (role === 'ADMIN') {
       return ['Home', 'Admin', 'Community'].includes(item.label);
     }
-    return ['Home', 'Student', 'Scorecards', 'Certificates', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
+    return ['Home', 'Student', 'Profile', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
 
   const handleLogout = () => {

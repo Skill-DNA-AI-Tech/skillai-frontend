@@ -16,6 +16,7 @@ import {
   Stethoscope,
   UsersRound,
   Video,
+  User,
 } from 'lucide-react';
 
 export const domains = [
@@ -181,8 +182,7 @@ export const interviewTypes = [
 export const navItems = [
   { label: 'Home', href: '/', icon: GraduationCap },
   { label: 'Student', href: '/dashboard', icon: LineChart },
-  { label: 'Scorecards', href: '/scorecards', icon: BadgeCheck },
-  { label: 'Certificates', href: '/certificates', icon: BadgeCheck },
+  { label: 'Profile', href: '/profile', icon: User },
   { label: 'Career Twin', href: '/career-twin', icon: BrainCircuit },
   { label: 'Learning', href: '/learning', icon: BookOpen },
   { label: 'Interview', href: '/interview', icon: Video },

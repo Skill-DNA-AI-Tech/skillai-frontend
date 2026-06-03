@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Mail, Phone, Briefcase, GraduationCap, MapPin, Download, Share2, Copy, Eye, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Award, Mail, Phone, Briefcase, GraduationCap, MapPin, Download, Share2, Copy, Eye, CheckCircle, AlertCircle, Loader, Plus } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -32,6 +32,7 @@ interface Certificate {
   problemSolvingScore: number;
   confidenceScore: number;
   sharedWith: Array<{ recruiterEmail: string; sharedAt: string }>;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 const StudentProfilePage: React.FC = () => {
@@ -49,6 +50,19 @@ const StudentProfilePage: React.FC = () => {
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [actualSessions, setActualSessions] = useState(0);
+  const [formData, setFormData] = useState({
+    careerPath: '',
+    technicalScore: 0,
+    communicationScore: 0,
+    problemSolvingScore: 0,
+    confidenceScore: 0,
+    sessionsCompleted: 0,
+    strengths: '',
+    improvements: '',
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -61,6 +75,18 @@ const StudentProfilePage: React.FC = () => {
           // Fetch own certificates
           const certRes = await api.get('/api/certificates/my-certificates');
           setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
+
+          // Fetch own interview sessions count
+          let sessionsCount = 0;
+          try {
+            const sessionsRes = await api.get('/api/interviews/sessions/me');
+            if (sessionsRes.data && Array.isArray(sessionsRes.data)) {
+              sessionsCount = sessionsRes.data.filter((s: any) => s.status === 'Completed' || s.status === 'completed').length;
+            }
+          } catch (e) {
+            console.warn('Failed to fetch interview session count:', e);
+          }
+          setActualSessions(sessionsCount);
         } else {
           // Fetch target student profile
           const profileRes = await api.get(`/api/profiles/user/${id}`);
@@ -124,6 +150,57 @@ const StudentProfilePage: React.FC = () => {
     } catch (err) {
       console.error('Failed to download PDF', err);
       alert('Failed to download certificate');
+    }
+  };
+
+  const handleOpenCreateModal = () => {
+    if (actualSessions === 0) {
+      alert("You must complete at least one mock interview practice session before generating a certificate.");
+      return;
+    }
+
+    const skillDNA = (profile as any)?.skillDNA || {};
+    setFormData({
+      careerPath: (profile as any)?.preferredRoles?.[0] || (profile as any)?.branch || 'Software Engineering',
+      technicalScore: skillDNA.technicalScore || 70,
+      communicationScore: skillDNA.communicationScore || 75,
+      problemSolvingScore: skillDNA.projectsScore || skillDNA.aptitudeScore || 72,
+      confidenceScore: skillDNA.confidenceScore || 68,
+      sessionsCompleted: actualSessions,
+      strengths: skillDNA.strengths?.join(', ') || 'Problem Solving, System Design',
+      improvements: skillDNA.weaknesses?.join(', ') || 'Communication Depth',
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleCreateCertificate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (actualSessions === 0) {
+      alert("You must complete at least one mock interview practice session before generating a certificate.");
+      return;
+    }
+
+    try {
+      const payload = {
+        ...formData,
+        technicalScore: parseInt(formData.technicalScore as any),
+        communicationScore: parseInt(formData.communicationScore as any),
+        problemSolvingScore: parseInt(formData.problemSolvingScore as any),
+        confidenceScore: parseInt(formData.confidenceScore as any),
+        sessionsCompleted: parseInt(formData.sessionsCompleted as any),
+        strengths: formData.strengths ? formData.strengths.split(',').map((s: string) => s.trim()) : [],
+        improvements: formData.improvements ? formData.improvements.split(',').map((i: string) => i.trim()) : [],
+      };
+
+      const response = await api.post('/api/certificates/create', payload);
+
+      if (response.data.certificate) {
+        setCertificates([response.data.certificate, ...certificates]);
+        setShowCreateModal(false);
+        alert('Certificate request generated successfully!');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to generate certificate');
     }
   };
 
@@ -219,12 +296,14 @@ const StudentProfilePage: React.FC = () => {
                 {certificates.length}
               </span>
             </h2>
-            <a
-              href="/certificates"
-              className="text-cyan-400 hover:text-cyan-300 text-sm font-semibold flex items-center gap-2"
-            >
-              View All → 
-            </a>
+            {isOwnProfile && (
+              <button
+                onClick={handleOpenCreateModal}
+                className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95"
+              >
+                <Plus className="w-4 h-4" /> Generate Certificate
+              </button>
+            )}
           </div>
 
           {error && (
@@ -257,9 +336,18 @@ const StudentProfilePage: React.FC = () => {
                   className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-cyan-500/20 hover:border-cyan-400/50 shadow-lg hover:shadow-cyan-500/20 transition-all overflow-hidden group"
                 >
                   {/* Header */}
-                  <div className="bg-gradient-to-r from-blue-900 to-cyan-900 p-4">
-                    <p className="text-xs text-cyan-300 font-mono truncate">{cert.certificateId}</p>
-                    <p className="text-white font-semibold mt-1">{cert.careerPath}</p>
+                  <div className="bg-gradient-to-r from-blue-900 to-cyan-900 p-4 flex items-center justify-between gap-4">
+                    <div className="truncate">
+                      <p className="text-xs text-cyan-300 font-mono truncate">{cert.certificateId}</p>
+                      <p className="text-white font-semibold mt-1 truncate">{cert.careerPath}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                      cert.status === 'APPROVED' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                      cert.status === 'REJECTED' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                      'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse'
+                    }`}>
+                      {cert.status || 'PENDING'}
+                    </span>
                   </div>
 
                   {/* Content */}
@@ -297,34 +385,48 @@ const StudentProfilePage: React.FC = () => {
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-2 border-t border-slate-700">
-                      <button
-                        onClick={() => window.open(`/certificate/${cert.certificateId}`, '_blank')}
-                        className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded transition-all"
-                        title="View certificate"
-                      >
-                        <Eye className="w-3 h-3" /> View
-                      </button>
-                      <button
-                        onClick={() => handleDownloadPDF(cert.certificateId)}
-                        className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded transition-all"
-                        title="Download PDF"
-                      >
-                        <Download className="w-3 h-3" /> PDF
-                      </button>
-                      {isOwnProfile && (
+                    {cert.status === 'APPROVED' ? (
+                      <div className="flex gap-2 pt-2 border-t border-slate-700">
                         <button
-                          onClick={() => {
-                            setSelectedCertId(cert.certificateId);
-                            setShowShareModal(true);
-                          }}
-                          className="flex-1 flex items-center justify-center gap-1 bg-gradient-to-r from-cyan-600 to-blue-500 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold py-2 rounded transition-all"
-                          title="Share certificate"
+                          onClick={() => window.open(`/certificate/${cert.certificateId}`, '_blank')}
+                          className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded transition-all"
+                          title="View certificate"
                         >
-                          <Share2 className="w-3 h-3" /> Share
+                          <Eye className="w-3 h-3" /> View
                         </button>
-                      )}
-                    </div>
+                        <button
+                          onClick={() => handleDownloadPDF(cert.certificateId)}
+                          className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded transition-all"
+                          title="Download PDF"
+                        >
+                          <Download className="w-3 h-3" /> PDF
+                        </button>
+                        {isOwnProfile && (
+                          <button
+                            onClick={() => {
+                              setSelectedCertId(cert.certificateId);
+                              setShowShareModal(true);
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1 bg-gradient-to-r from-cyan-600 to-blue-500 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold py-2 rounded transition-all"
+                            title="Share certificate"
+                          >
+                            <Share2 className="w-3 h-3" /> Share
+                          </button>
+                        )}
+                      </div>
+                    ) : cert.status === 'REJECTED' ? (
+                      <div className="pt-2 border-t border-slate-700">
+                        <div className="p-2 text-center rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                          This certificate request was rejected.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-slate-700">
+                        <div className="p-2 text-center rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-semibold animate-pulse">
+                          Pending digital signature and approval...
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -384,6 +486,109 @@ const StudentProfilePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowShareModal(false)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Certificate Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-cyan-500/20 max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-900 to-cyan-900 p-6 flex items-center justify-between border-b border-cyan-500/20">
+              <h2 className="text-2xl font-bold text-white">Generate New Certificate</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-slate-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCertificate} className="p-6 space-y-4">
+              <div>
+                <label className="text-slate-300 font-semibold mb-2 block">Career Path</label>
+                <input
+                  type="text"
+                  value={formData.careerPath}
+                  onChange={(e) => setFormData({ ...formData, careerPath: e.target.value })}
+                  placeholder="e.g., Software Development"
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { key: 'technicalScore', label: 'Technical Score' },
+                  { key: 'communicationScore', label: 'Communication Score' },
+                  { key: 'problemSolvingScore', label: 'Problem Solving Score' },
+                  { key: 'confidenceScore', label: 'Confidence Score' },
+                ].map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-slate-300 font-semibold mb-2 block text-sm">{label}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData[key as keyof typeof formData]}
+                      onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
+                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-400"
+                      required
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-semibold mb-2 block">Sessions Completed</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.sessionsCompleted}
+                  onChange={(e) => setFormData({ ...formData, sessionsCompleted: parseInt(e.target.value) })}
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-semibold mb-2 block">Strengths (comma-separated)</label>
+                <textarea
+                  value={formData.strengths}
+                  onChange={(e) => setFormData({ ...formData, strengths: e.target.value })}
+                  placeholder="e.g., Problem Solving, System Design, Technical Depth"
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-semibold mb-2 block">Improvements (comma-separated)</label>
+                <textarea
+                  value={formData.improvements}
+                  onChange={(e) => setFormData({ ...formData, improvements: e.target.value })}
+                  placeholder="e.g., Communication, Time Management, Stress Handling"
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t border-slate-700">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold py-2 rounded-lg transition-all"
+                >
+                  Generate Certificate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
                   className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all"
                 >
                   Cancel

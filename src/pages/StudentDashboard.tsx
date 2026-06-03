@@ -567,15 +567,13 @@ const StudentDashboard = () => {
               <p className="text-sm text-slate-400 mt-1">Your comprehensive performance report from the last AI evaluation.</p>
             </div>
             {scorecard.pdfReportUrl && (
-              <a
-                href={scorecard.pdfReportUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                to="/scorecards"
                 className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-400 to-teal-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(52,211,153,0.4)] hover:scale-105 active:scale-95"
               >
                 <Upload className="h-4 w-4 transition-transform group-hover:-translate-y-1" />
-                Download PDF
-              </a>
+                View Scorecards
+              </Link>
             )}
           </div>
           
