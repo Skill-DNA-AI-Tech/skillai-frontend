@@ -178,6 +178,15 @@ export const api = {
       },
       'POST',
     ),
+  put: <T = any>(path: string, body?: unknown, config: ApiConfig = {}) =>
+    requestWithData<T>(
+      path,
+      {
+        ...config,
+        body: body instanceof FormData || typeof body === 'string' ? body : JSON.stringify(body ?? {}),
+      },
+      'PUT',
+    ),
   patch: <T = any>(path: string, body?: unknown, config: ApiConfig = {}) =>
     requestWithData<T>(
       path,
