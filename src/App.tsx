@@ -1,3 +1,4 @@
+// Trigger redeployment for Cloudflare configuration updates
 import { lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Route, Routes, Navigate, useLocation, BrowserRouter } from 'react-router-dom';
