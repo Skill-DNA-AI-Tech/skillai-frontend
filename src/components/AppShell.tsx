@@ -1,4 +1,4 @@
-import { Menu, Sparkles, X, LogOut, User } from 'lucide-react';
+import { Menu, Sparkles, X, LogOut, User, LineChart, Building2, UsersRound, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,7 @@ import { roleLabel } from '../lib/rbac';
 
 const AppShell = () => {
   const [open, setOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -25,7 +26,7 @@ const AppShell = () => {
     if (role === 'ADMIN') {
       return ['Home', 'Admin', 'Community'].includes(item.label);
     }
-    return ['Home', 'Student', 'Profile', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
+    return ['Home', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
 
   const handleLogout = () => {
@@ -91,22 +92,96 @@ const AppShell = () => {
               </>
             ) : (
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-slate-900 px-4 py-2">
-                  <div className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950">
-                    <User className="h-3 w-3 font-bold" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-slate-200">{roleLabel(role)}</p>
-                    {user?.name && <p className="text-xs text-slate-400">{user.name}</p>}
-                  </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="flex items-center gap-3 rounded-xl border border-white/5 bg-slate-900 hover:bg-slate-800 transition-colors px-4 py-2 text-left cursor-pointer focus:outline-none"
+                  >
+                    <div className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950">
+                      <User className="h-3 w-3 font-bold" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-slate-200">{roleLabel(role)}</p>
+                      {user?.name && <p className="text-xs text-slate-400">{user.name}</p>}
+                    </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {showDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur-md p-2 shadow-xl z-20"
+                        >
+                          {role === 'STUDENT' && (
+                            <>
+                              <Link
+                                to="/profile"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <User className="h-4 w-4 text-cyan-400" />
+                                Profile
+                              </Link>
+                              <Link
+                                to="/dashboard"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <LineChart className="h-4 w-4 text-cyan-400" />
+                                Student
+                              </Link>
+                            </>
+                          )}
+                          {role === 'HR' && (
+                            <Link
+                              to="/hr"
+                              onClick={() => setShowDropdown(false)}
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                            >
+                              <Building2 className="h-4 w-4 text-cyan-400" />
+                              HR Dashboard
+                            </Link>
+                          )}
+                          {role === 'ADMIN' && (
+                            <Link
+                              to="/admin"
+                              onClick={() => setShowDropdown(false)}
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                            >
+                              <UsersRound className="h-4 w-4 text-cyan-400" />
+                              Admin Dashboard
+                            </Link>
+                          )}
+                          {role === 'MAIN_ADMIN' && (
+                            <Link
+                              to="/main-admin"
+                              onClick={() => setShowDropdown(false)}
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                            >
+                              <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                              Main Admin Dashboard
+                            </Link>
+                          )}
+                          <div className="my-1 border-t border-white/5" />
+                          <button
+                            onClick={() => {
+                              setShowDropdown(false);
+                              handleLogout();
+                            }}
+                            className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors text-left"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            Logout
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
                 </div>
-                <button 
-                  onClick={handleLogout}
-                  className="group flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm font-medium text-slate-300 transition-all hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-95"
-                >
-                  <LogOut className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                  Logout
-                </button>
               </div>
             )}
           </div>
@@ -128,25 +203,113 @@ const AppShell = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 z-50 bg-slate-950/95 p-6 backdrop-blur-xl lg:hidden"
+            className="fixed inset-0 z-50 bg-slate-950/95 p-6 backdrop-blur-xl lg:hidden flex flex-col justify-between"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500">
-                  <Sparkles className="h-5 w-5 text-slate-950" />
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500">
+                    <Sparkles className="h-5 w-5 text-slate-950" />
+                  </div>
+                  <p className="font-bold text-white text-lg">SkillDNA AI</p>
                 </div>
-                <p className="font-bold text-white text-lg">SkillDNA AI</p>
+                <button
+                  type="button"
+                  aria-label="Close navigation"
+                  onClick={() => setOpen(false)}
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-slate-200 hover:bg-white/10 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label="Close navigation"
-                onClick={() => setOpen(false)}
-                className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-slate-200 hover:bg-white/10 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="mt-8 grid gap-2">{nav}</div>
             </div>
-            <div className="mt-8 grid gap-2">{nav}</div>
+
+            {role ? (
+              <div className="border-t border-white/10 pt-6 mt-auto">
+                <div className="flex items-center gap-3 px-4 py-2 bg-slate-900/50 rounded-xl border border-white/5 mb-4">
+                  <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950">
+                    <User className="h-4 w-4 font-bold" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-200">{roleLabel(role)}</p>
+                    {user?.name && <p className="text-xs text-slate-400">{user.name}</p>}
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  {role === 'STUDENT' && (
+                    <>
+                      <Link
+                        to="/profile"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <User className="h-4 w-4 text-cyan-400" />
+                        Profile
+                      </Link>
+                      <Link
+                        to="/dashboard"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <LineChart className="h-4 w-4 text-cyan-400" />
+                        Student
+                      </Link>
+                    </>
+                  )}
+                  {role === 'HR' && (
+                    <Link
+                      to="/hr"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                    >
+                      <Building2 className="h-4 w-4 text-cyan-400" />
+                      HR Dashboard
+                    </Link>
+                  )}
+                  {role === 'ADMIN' && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                    >
+                      <UsersRound className="h-4 w-4 text-cyan-400" />
+                      Admin Dashboard
+                    </Link>
+                  )}
+                  {role === 'MAIN_ADMIN' && (
+                    <Link
+                      to="/main-admin"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                    >
+                      <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                      Main Admin Dashboard
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-500/10 text-sm text-rose-400 hover:bg-rose-500/20 text-left w-full"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-t border-white/10 pt-6 mt-auto">
+                <Link
+                  to="/auth"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-3 text-sm font-semibold text-slate-950 transition-all hover:opacity-90 active:scale-95 w-full"
+                >
+                  Sign in
+                </Link>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
