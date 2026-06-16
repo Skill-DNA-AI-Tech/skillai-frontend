@@ -6,6 +6,7 @@ import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { roleHome } from '../lib/rbac';
+import { SocialLoginButtons } from '../components/SocialLoginButtons';
 
 const Auth = () => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password'>('login');
@@ -25,6 +26,55 @@ const Auth = () => {
   const navigate = useNavigate();
 
   const navigateToRole = (userRole: string) => navigate(roleHome(userRole));
+
+  const handleSocialSuccess = async (socialUser: any) => {
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+
+    try {
+      const path = socialUser.provider === 'google' ? '/auth/google' : '/auth/microsoft';
+      const payload: Record<string, any> = {
+        email: socialUser.email,
+        name: socialUser.name,
+        avatarUrl: socialUser.avatarUrl,
+        role,
+      };
+
+      if (socialUser.provider === 'google') {
+        payload.googleId = socialUser.id;
+      } else {
+        payload.microsoftId = socialUser.id;
+      }
+
+      const response = await apiRequest<any>(path, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.token) {
+        throw new Error(response.message || 'Authentication failed.');
+      }
+
+      login(
+        { 
+          _id: response._id, 
+          name: response.name, 
+          email: response.email, 
+          role: response.role, 
+          status: response.status, 
+          avatarUrl: response.avatarUrl 
+        }, 
+        response.token, 
+        response.refreshToken
+      );
+      navigateToRole(response.role);
+    } catch (err: any) {
+      setError(err?.message || 'Unable to authenticate with social provider.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -200,6 +250,16 @@ const Auth = () => {
                     Forgot Password
                   </button>
                 </div>
+              )}
+
+              {(mode === 'login' || mode === 'register') && (
+                <>
+                  <SocialLoginButtons onSuccess={handleSocialSuccess} onError={(err) => setError(err)} role={role} />
+                  <div className="relative my-2 text-center">
+                    <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-white/5" style={{ transform: 'translateY(-50%)' }} />
+                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or continue with email</span>
+                  </div>
+                </>
               )}
 
               {mode === 'register' && (

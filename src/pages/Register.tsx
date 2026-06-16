@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
+import { SocialLoginButtons } from '../components/SocialLoginButtons';
 
 const Register = () => {
   const { login } = useAuth();
@@ -28,6 +29,23 @@ const Register = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  const handleSocialSignup = (socialUser: any) => {
+    const names = (socialUser.name || '').trim().split(/\s+/);
+    const firstName = names[0] || '';
+    const lastName = names.slice(1).join(' ') || '';
+
+    setFormData(prev => ({
+      ...prev,
+      firstName,
+      lastName,
+      email: socialUser.email,
+    }));
+
+    if (socialUser.avatarUrl) {
+      setAvatarPreview(socialUser.avatarUrl);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -237,6 +255,11 @@ const Register = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="mb-6 p-4 rounded-xl border border-white/5 bg-white/[0.01]">
+              <p className="text-xs text-slate-400 mb-2 font-medium">Quick sign up: Autofill profile with social accounts</p>
+              <SocialLoginButtons onSuccess={handleSocialSignup} onError={(err) => alert(err)} role="student" />
             </div>
             
             <form className="grid gap-6">
