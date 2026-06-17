@@ -1,4 +1,4 @@
-import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock } from 'lucide-react';
+import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock, MessageSquareText, Star } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
@@ -183,7 +183,7 @@ const MainAdminDashboard = () => {
   const { user } = useAuth();
   const isMainAdmin = user?.email === 'skilldnaai@ai.com';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'footer' | 'admins' | 'certificates'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback'>('overview');
   const [footerData, setFooterData] = useState<FooterData>(defaultFooterData);
 
   // Certificates Approval & Signature State
@@ -201,6 +201,16 @@ const MainAdminDashboard = () => {
     strengths: '',
     improvements: '',
   });
+
+  // Page Settings State
+  const [pageSettings, setPageSettings] = useState<any[]>([]);
+  const [pageSettingsLoading, setPageSettingsLoading] = useState(false);
+  const [pageSettingsUpdating, setPageSettingsUpdating] = useState<string | null>(null);
+
+  // User Feedbacks State
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(false);
+  const [updatingFeedbackId, setUpdatingFeedbackId] = useState<string | null>(null);
 
   const fetchPendingCertificates = async () => {
     try {
@@ -223,10 +233,90 @@ const MainAdminDashboard = () => {
     }
   };
 
+  const fetchPageSettings = async () => {
+    try {
+      setPageSettingsLoading(true);
+      const res = await apiRequest<any[]>('/admin/page-settings');
+      setPageSettings(res || []);
+    } catch (error) {
+      console.error('Failed to fetch page settings:', error);
+    } finally {
+      setPageSettingsLoading(false);
+    }
+  };
+
+  const handleTogglePageVisibility = async (pageId: string, currentHidden: boolean) => {
+    try {
+      setPageSettingsUpdating(pageId);
+      const res = await apiRequest<any>(`/admin/page-settings/${pageId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isHidden: !currentHidden }),
+      });
+      setPageSettings((prev) =>
+        prev.map((item) => (item.pageId === pageId ? { ...item, isHidden: res.isHidden } : item))
+      );
+    } catch (error) {
+      console.error('Failed to update page setting:', error);
+      alert('Failed to update page settings');
+    } finally {
+      setPageSettingsUpdating(null);
+    }
+  };
+
+  const fetchFeedbacks = async () => {
+    try {
+      setFeedbacksLoading(true);
+      const res = await apiRequest<any[]>('/admin/feedback');
+      setFeedbacks(res || []);
+    } catch (error) {
+      console.error('Failed to fetch feedbacks:', error);
+    } finally {
+      setFeedbacksLoading(false);
+    }
+  };
+
+  const handleUpdateFeedbackStatus = async (id: string, newStatus: string) => {
+    try {
+      setUpdatingFeedbackId(id);
+      const res = await apiRequest<any>(`/admin/feedback/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setFeedbacks((prev) =>
+        prev.map((item) => (item._id === id ? { ...item, status: res.status } : item))
+      );
+    } catch (error) {
+      console.error('Failed to update feedback status:', error);
+      alert('Failed to update feedback status');
+    } finally {
+      setUpdatingFeedbackId(null);
+    }
+  };
+
+  const handleBackupFeedbacks = async () => {
+    try {
+      const res = await apiRequest<any>('/admin/feedback/backup');
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(res, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "feedbacks_backup.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (error) {
+      console.error('Failed to backup feedbacks:', error);
+      alert('Failed to download backup data');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'certificates') {
       fetchPendingCertificates();
       fetchAdminSignature();
+    } else if (activeTab === 'page-settings') {
+      fetchPageSettings();
+    } else if (activeTab === 'feedback') {
+      fetchFeedbacks();
     }
   }, [activeTab]);
   const [overview, setOverview] = useState<any>(null);
@@ -482,6 +572,20 @@ const MainAdminDashboard = () => {
             >
               <Award className="h-4 w-4 text-cyan-400" />
               <span>Certificates & Signature</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('page-settings')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'page-settings' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <Settings className="h-4 w-4 text-cyan-400" />
+              <span>Page Visibility</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('feedback')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'feedback' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <MessageSquareText className="h-4 w-4 text-cyan-400" />
+              <span>User Feedback</span>
             </button>
           </div>
           <div className="mt-6 rounded-2xl border border-white/5 bg-slate-950/60 p-4">
@@ -1246,6 +1350,210 @@ const MainAdminDashboard = () => {
           </div>
         </div>
       )}
+
+          {activeTab === 'page-settings' && (
+            <motion.section
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="rounded-2xl border border-white/5 bg-slate-900/50 p-6 backdrop-blur-sm shadow-xl"
+            >
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Settings className="h-6 w-6 text-cyan-400" />
+                  Student Page Visibility Controls
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  Toggle visibility for platform pages. Hiding a page removes it from the Student navigation and blocks direct URL access.
+                </p>
+              </div>
+
+              {pageSettingsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+                </div>
+              ) : pageSettings.length === 0 ? (
+                <p className="text-slate-400 py-6 text-center">No page settings available.</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {pageSettings.map((page) => (
+                    <div
+                      key={page.pageId}
+                      className={`rounded-xl border p-5 transition-all flex justify-between items-center bg-slate-950/20 ${
+                        page.isHidden
+                          ? 'border-red-500/20 hover:border-red-500/30'
+                          : 'border-white/5 hover:border-cyan-500/30'
+                      }`}
+                    >
+                      <div>
+                        <h4 className="font-semibold text-white text-base">{page.label}</h4>
+                        <p className="text-xs text-slate-400 mt-1">ID: {page.pageId}</p>
+                        <div className="mt-3">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                              page.isHidden
+                                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            }`}
+                          >
+                            {page.isHidden ? 'Hidden from Students' : 'Visible to Students'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleTogglePageVisibility(page.pageId, page.isHidden)}
+                        disabled={pageSettingsUpdating === page.pageId}
+                        className={`rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 select-none ${
+                          page.isHidden
+                            ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                            : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                        }`}
+                      >
+                        {pageSettingsUpdating === page.pageId ? 'Updating...' : page.isHidden ? 'Activate' : 'Deactivate'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.section>
+          )}
+
+          {activeTab === 'feedback' && (
+            <motion.section
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="rounded-2xl border border-white/5 bg-slate-900/50 p-6 backdrop-blur-sm shadow-xl"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <MessageSquareText className="h-6 w-6 text-cyan-400" />
+                    User Feedback Submissions
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Review and manage feedback submitted by platform users. Mark them as RESOLVED or IN PROGRESS.
+                  </p>
+                </div>
+                <button
+                  onClick={handleBackupFeedbacks}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all cursor-pointer"
+                >
+                  <Database className="h-4 w-4" />
+                  Backup Support Data
+                </button>
+              </div>
+
+              {feedbacksLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+                </div>
+              ) : feedbacks.length === 0 ? (
+                <div className="text-center py-12 rounded-xl border border-dashed border-white/10 bg-slate-950/40">
+                  <MessageSquareText className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                  <h4 className="text-white font-semibold mb-1">No Feedback Found</h4>
+                  <p className="text-sm text-slate-400">Feedback submitted by users will appear here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-950/40">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-slate-900/80 text-slate-400 font-semibold">
+                        <th className="p-4">User Details</th>
+                        <th className="p-4">Message</th>
+                        <th className="p-4">Category</th>
+                        <th className="p-4">Rating</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {feedbacks.map((item) => (
+                        <tr key={item._id} className="text-slate-300 hover:bg-slate-900/20 transition-colors">
+                          <td className="p-4">
+                            <p className="font-semibold text-white">{item.name}</p>
+                            <p className="text-xs text-slate-500">{item.email}</p>
+                            <p className="text-[10px] text-slate-600 mt-1">
+                              {new Date(item.createdAt).toLocaleString()}
+                            </p>
+                          </td>
+                          <td className="p-4 max-w-xs sm:max-w-md">
+                            <p className="text-sm text-slate-200 break-words whitespace-pre-wrap">{item.message}</p>
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase border ${
+                                item.category === 'bug'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                  : item.category === 'complaint'
+                                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                  : item.category === 'suggestion'
+                                  ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                                  : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                              }`}
+                            >
+                              {item.category}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex gap-0.5 text-amber-400">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${
+                                    i < (item.rating || 0) ? 'fill-amber-400' : 'text-slate-700'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                                item.status === 'RESOLVED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                  : item.status === 'IN_PROGRESS'
+                                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                  : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                              }`}
+                            >
+                              {item.status || 'PENDING'}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              {item.status !== 'IN_PROGRESS' && item.status !== 'RESOLVED' && (
+                                <button
+                                  onClick={() => handleUpdateFeedbackStatus(item._id, 'IN_PROGRESS')}
+                                  disabled={updatingFeedbackId === item._id}
+                                  className="text-xs font-semibold rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-1 hover:bg-blue-500/20 transition-all cursor-pointer"
+                                >
+                                  Investigate
+                                </button>
+                              )}
+                              {item.status !== 'RESOLVED' && (
+                                <button
+                                  onClick={() => handleUpdateFeedbackStatus(item._id, 'RESOLVED')}
+                                  disabled={updatingFeedbackId === item._id}
+                                  className="text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                                >
+                                  Resolve
+                                </button>
+                              )}
+                              {item.status === 'RESOLVED' && (
+                                <span className="text-xs text-slate-500">Completed</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.section>
+          )}
 
       {/* Reset Password Modal */}
       {showResetModal && selectedAdminForReset && (

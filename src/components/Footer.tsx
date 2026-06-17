@@ -30,6 +30,13 @@ const Footer = () => {
                 { label: 'Jobs', url: '/jobs' },
                 { label: 'Community', url: '/community' },
               ]
+            },
+            {
+              title: 'Support & Feedback',
+              links: [
+                { label: 'Help Center', url: 'mailto:support@skilldna.com' },
+                { label: 'Submit Feedback', url: '/feedback' },
+              ]
             }
           ],
           copyright: '© 2024 SkillDNA AI. All rights reserved.',

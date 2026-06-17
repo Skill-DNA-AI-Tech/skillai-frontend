@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { motion, AnimatePresence } from 'framer-motion';
 import { navItems } from '../data/platform';
 import { useAuth } from '../context/AuthContext';
+import { usePageSettings } from '../context/PageSettingsContext';
 import Footer from './Footer';
 import { roleLabel } from '../lib/rbac';
 
@@ -11,9 +12,25 @@ const AppShell = () => {
   const [open, setOpen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const { user, role, logout } = useAuth();
+  const { isPageHidden } = usePageSettings();
   const navigate = useNavigate();
 
+  const getPageId = (label: string) => {
+    if (label === 'Career Twin') return 'career-twin';
+    if (label === 'Learning') return 'learning';
+    if (label === 'Interview') return 'interview';
+    if (label === 'Jobs') return 'jobs';
+    if (label === 'Community') return 'community';
+    return null;
+  };
+
   const filteredNavItems = navItems.filter((item) => {
+    const pageId = getPageId(item.label);
+    const isAdmin = role === 'ADMIN' || role === 'MAIN_ADMIN';
+    if (pageId && isPageHidden(pageId) && !isAdmin) {
+      return false;
+    }
+
     if (!role) {
       return ['Home', 'Community'].includes(item.label);
     }
