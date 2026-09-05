@@ -1,4 +1,4 @@
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
@@ -10,7 +10,7 @@ const getApiBaseUrl = () => {
   return 'http://localhost:5000/api';
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
 type RequestOptions = RequestInit & {
   token?: string;
@@ -20,10 +20,21 @@ type ApiConfig = RequestOptions & {
   responseType?: 'json' | 'blob';
 };
 
-const normalizeApiPath = (path: string) => (path.startsWith('/api/') ? path.slice(4) : path);
+const normalizeApiPath = (path: string) => {
+  let clean = path;
+  if (clean.startsWith('/api/')) {
+    clean = clean.slice(4);
+  } else if (clean.startsWith('api/')) {
+    clean = clean.slice(3);
+  }
+  if (!clean.startsWith('/')) {
+    clean = '/' + clean;
+  }
+  return clean;
+};
 const STORAGE_KEY = 'skilldna_auth';
 
-const readStoredToken = () => {
+export const readStoredToken = () => {
   try {
     const auth = localStorage.getItem(STORAGE_KEY);
     if (auth) {
@@ -198,5 +209,3 @@ export const api = {
     ),
   delete: <T = any>(path: string, config?: ApiConfig) => requestWithData<T>(path, config, 'DELETE'),
 };
-
-export { API_BASE_URL };

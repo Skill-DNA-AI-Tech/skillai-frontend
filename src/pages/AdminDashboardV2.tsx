@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Award, BarChart3, BriefcaseBusiness, FileText, Loader2, Shield, Trash2, UserPlus, Users, Ban, RotateCcw, Settings, MessageSquareText, Star, Database } from 'lucide-react';
+import { Award, BarChart3, BriefcaseBusiness, FileText, Loader2, Shield, Trash2, UserPlus, Users, Ban, RotateCcw, Settings, MessageSquareText, Star, Database, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MetricCard from '../components/MetricCard';
 import SectionHeader from '../components/SectionHeader';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { TestUserManager } from '../components/TestUserManager';
 
 type HrAccount = {
   _id: string;
@@ -19,7 +20,7 @@ const emptyHrForm = { name: '', email: '', password: '', mobile: '' };
 
 const AdminDashboardV2 = () => {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'hr-management' | 'page-settings' | 'feedback'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'hr-management' | 'page-settings' | 'feedback' | 'test-users'>('overview');
   const [overview, setOverview] = useState<any>(null);
   const [hrs, setHrs] = useState<HrAccount[]>([]);
   const [form, setForm] = useState(emptyHrForm);
@@ -188,6 +189,7 @@ const AdminDashboardV2 = () => {
   };
 
   const modules = [
+    { title: 'Test Customer Personas', text: 'Manage controlled test personas across all career domains, reset testing data, and view evaluations.', icon: Sparkles, href: '#test-users', action: () => setActiveTab('test-users') },
     { title: 'Student Management', text: 'View profiles, progress, scorecards, and learning readiness.', icon: Users, href: '#students' },
     { title: 'HR Management', text: 'Create, disable, and delete HR accounts.', icon: BriefcaseBusiness, href: '#hr-management', action: () => setActiveTab('hr-management') },
     { title: 'Job Management', text: 'Review active jobs and hiring activity.', icon: FileText, href: '/jobs' },
@@ -226,6 +228,17 @@ const AdminDashboardV2 = () => {
           }`}
         >
           Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('test-users')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === 'test-users'
+              ? 'border-cyan-400 text-cyan-400'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="h-4 w-4" />
+          Pre-Production & Beta Access
         </button>
         <button
           onClick={() => setActiveTab('hr-management')}
@@ -545,6 +558,12 @@ const AdminDashboardV2 = () => {
                 </table>
               </div>
             )}
+          </motion.div>
+        )}
+
+        {activeTab === 'test-users' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <TestUserManager />
           </motion.div>
         )}
       </div>

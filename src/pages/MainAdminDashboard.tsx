@@ -1,12 +1,14 @@
-import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock, MessageSquareText, Star } from 'lucide-react';
+import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock, MessageSquareText, Star, Video, BrainCircuit, ExternalLink, Activity, Layers, ArrowRight, Building2, LineChart, Download, Search, Filter, FileSpreadsheet, Plus, RefreshCw, Check, X, ChevronLeft, ChevronRight, BookOpen, AlertCircle, FileText } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import SectionHeader from '../components/SectionHeader';
 import { adminAnalytics, contentTypes } from '../data/platform';
-import { apiRequest } from '../lib/api';
+import { apiRequest, getApiBaseUrl, readStoredToken } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { TestUserManager } from '../components/TestUserManager';
 
 const adminChart = [
   { label: 'Medical', users: 3200 },
@@ -99,13 +101,12 @@ const SignaturePad = ({ onSave, initialSignature }: { onSave: (data: string) => 
     ctx.strokeStyle = '#22d3ee'; // cyan-400
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
-
+    ctx.lineJoin = 'round';
     const rect = canvasRef.getBoundingClientRect();
-    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
-
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
     setIsDrawing(true);
   };
 
@@ -115,12 +116,10 @@ const SignaturePad = ({ onSave, initialSignature }: { onSave: (data: string) => 
     if (!ctx) return;
 
     const rect = canvasRef.getBoundingClientRect();
-    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
-
-    ctx.lineTo(x, y);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
     ctx.stroke();
-    e.preventDefault();
   };
 
   const stopDrawing = () => {
@@ -179,12 +178,239 @@ const SignaturePad = ({ onSave, initialSignature }: { onSave: (data: string) => 
   );
 };
 
+const CAREER_DOMAINS = [
+  'ALL',
+  'Computer Science',
+  'Mechanical Engineering',
+  'Civil Engineering',
+  'Electronics',
+  'Commerce',
+  'Finance',
+  'Management',
+  'Marketing',
+  'HR',
+  'Design',
+  'Healthcare',
+];
+
 const MainAdminDashboard = () => {
   const { user } = useAuth();
   const isMainAdmin = user?.email === 'skilldnaai@ai.com';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'questions' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'test-users'>('overview');
   const [footerData, setFooterData] = useState<FooterData>(defaultFooterData);
+
+  // Question Bank State
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsTotal, setQuestionsTotal] = useState(0);
+  const [questionsPage, setQuestionsPage] = useState(1);
+  const [questionsTotalPages, setQuestionsTotalPages] = useState(1);
+  const [questionSearch, setQuestionSearch] = useState('');
+  const [questionDomain, setQuestionDomain] = useState('ALL');
+  const [questionDifficulty, setQuestionDifficulty] = useState('ALL');
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
+
+  // Question Modals & Action State
+  const [showCreateQuestionModal, setShowCreateQuestionModal] = useState(false);
+  const [showAiGenerateModal, setShowAiGenerateModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFormat, setUploadFormat] = useState<'excel' | 'csv'>('excel');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState(false);
+  const [creatingSingle, setCreatingSingle] = useState(false);
+
+  const [singleForm, setSingleForm] = useState({
+    field: 'Computer Science',
+    topic: '',
+    subtopic: '',
+    difficulty: 'Medium',
+    interviewType: 'Technical',
+    question: '',
+    answer: '',
+    keywords: '',
+  });
+
+  const [aiForm, setAiForm] = useState({
+    field: 'Computer Science',
+    topic: '',
+    subtopic: '',
+    difficulty: 'Medium',
+    count: 5,
+  });
+
+  const fetchQuestionBank = async (page = 1) => {
+    try {
+      setQuestionsLoading(true);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '15',
+        search: questionSearch,
+        field: questionDomain,
+        difficulty: questionDifficulty,
+      });
+      const res = await apiRequest<{
+        questions: any[];
+        total: number;
+        page: number;
+        totalPages: number;
+      }>(`/questions/admin/list?${params.toString()}`);
+      setQuestions(res?.questions || []);
+      setQuestionsTotal(res?.total || 0);
+      setQuestionsPage(res?.page || 1);
+      setQuestionsTotalPages(res?.totalPages || 1);
+    } catch (error) {
+      console.error('Failed to fetch question bank:', error);
+    } finally {
+      setQuestionsLoading(false);
+    }
+  };
+
+  const handleExportQuestions = async (format: 'xlsx' | 'csv') => {
+    try {
+      const params = new URLSearchParams({
+        format,
+        field: questionDomain,
+        difficulty: questionDifficulty,
+      });
+      const url = `${getApiBaseUrl()}/questions/admin/export?${params.toString()}`;
+      const token = readStoredToken();
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Export request failed');
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `skilldna_question_bank_${questionDomain.toLowerCase()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      alert(err.message || 'Export failed');
+    }
+  };
+
+  const handleDownloadTemplate = async (format: 'xlsx' | 'csv') => {
+    try {
+      const url = `${getApiBaseUrl()}/questions/admin/template?format=${format}`;
+      const token = readStoredToken();
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Template download request failed');
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `skilldna_question_template.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      alert(err.message || 'Template download failed');
+    }
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      alert('Please select an Excel (.xlsx, .xls) or CSV (.csv) file.');
+      return;
+    }
+    try {
+      setUploadLoading(true);
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('uploadFormat', uploadFormat);
+
+      const res = await apiRequest<any>('/questions/admin/upload', {
+        method: 'POST',
+        body: formData as any,
+      });
+
+      alert(res.message || 'Questions uploaded and added to active dataset successfully!');
+      setShowUploadModal(false);
+      setUploadFile(null);
+      fetchQuestionBank(1);
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload questions');
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleAiGenerateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiForm.topic) {
+      alert('Please enter a Topic to generate.');
+      return;
+    }
+    try {
+      setGeneratingAi(true);
+      const res = await apiRequest<any>('/questions/admin/generate-and-add', {
+        method: 'POST',
+        body: JSON.stringify(aiForm),
+      });
+
+      alert(res.message || 'Questions generated and added to active dataset!');
+      setShowAiGenerateModal(false);
+      setAiForm({ field: 'Computer Science', topic: '', subtopic: '', difficulty: 'Medium', count: 5 });
+      fetchQuestionBank(1);
+    } catch (err: any) {
+      alert(err.message || 'Failed to generate questions');
+    } finally {
+      setGeneratingAi(false);
+    }
+  };
+
+  const handleCreateSingleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!singleForm.question || !singleForm.answer || !singleForm.topic) {
+      alert('Topic, Question, and Answer are required.');
+      return;
+    }
+    try {
+      setCreatingSingle(true);
+      await apiRequest<any>('/questions/admin/create-single', {
+        method: 'POST',
+        body: JSON.stringify(singleForm),
+      });
+
+      alert('Question added to active dataset successfully!');
+      setShowCreateQuestionModal(false);
+      setSingleForm({
+        field: 'Computer Science',
+        topic: '',
+        subtopic: '',
+        difficulty: 'Medium',
+        interviewType: 'Technical',
+        question: '',
+        answer: '',
+        keywords: '',
+      });
+      fetchQuestionBank(1);
+    } catch (err: any) {
+      alert(err.message || 'Failed to create question');
+    } finally {
+      setCreatingSingle(false);
+    }
+  };
+
+  const handleDeleteQuestion = async (id: string, qText: string) => {
+    if (!confirm(`Are you sure you want to delete this question from the dataset?\n\n"${qText.slice(0, 80)}..."`)) return;
+    try {
+      await apiRequest<any>(`/questions/admin/${id}`, { method: 'DELETE' });
+      alert('Question deleted successfully.');
+      fetchQuestionBank(questionsPage);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete question');
+    }
+  };
 
   // Certificates Approval & Signature State
   const [pendingCertificates, setPendingCertificates] = useState<any[]>([]);
@@ -317,8 +543,10 @@ const MainAdminDashboard = () => {
       fetchPageSettings();
     } else if (activeTab === 'feedback') {
       fetchFeedbacks();
+    } else if (activeTab === 'questions') {
+      fetchQuestionBank(1);
     }
-  }, [activeTab]);
+  }, [activeTab, questionDomain, questionDifficulty]);
   const [overview, setOverview] = useState<any>(null);
   const [moderationData, setModerationData] = useState<ModerationData | null>(null);
   const [isEditingFooter, setIsEditingFooter] = useState(false);
@@ -522,11 +750,11 @@ const MainAdminDashboard = () => {
           description="Manage students, recruiters, companies, lessons, quizzes, webinars, reports, badges, emails, job postings, and moderation from one control surface."
           action={
             <button 
-              onClick={() => window.location.href = '/admin/questions'}
-              className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95"
+              onClick={() => setActiveTab('questions')}
+              className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
             >
               <FilePlus2 className="h-5 w-5 transition-transform group-hover:scale-110" />
-              Create Content
+              Question Bank & AI
             </button>
           }
         />
@@ -543,13 +771,20 @@ const MainAdminDashboard = () => {
               <BarChart3 className="h-4 w-4 text-cyan-400" />
               <span>Overview</span>
             </button>
-            <a
-              href="/admin/questions"
-              className="flex items-center gap-3 rounded-2xl border border-white/5 px-4 py-3 text-sm text-slate-200 transition-all hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white"
+            <button
+              onClick={() => setActiveTab('questions')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'questions' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
             >
               <FilePlus2 className="h-4 w-4 text-cyan-400" />
-              <span>Question bank</span>
-            </a>
+              <span>Question Bank & AI</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('test-users')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'test-users' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <Sparkles className="h-4 w-4 text-cyan-400" />
+              <span>Pre-Production & Beta Access</span>
+            </button>
             {isMainAdmin && (
               <button
                 onClick={() => setActiveTab('admins')}
@@ -596,36 +831,199 @@ const MainAdminDashboard = () => {
         <div className="space-y-8">
           {activeTab === 'overview' && (
             <>
-              <motion.section 
-                id="overview"
-                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
+              {/* Executive Summary & Live Database Metrics */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900/90 to-cyan-950/40 p-6 shadow-2xl backdrop-blur-xl"
               >
-            {adminAnalytics.map((metric) => (
-              <motion.div key={metric.label} variants={itemVariants} whileHover={{ y: -5, scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
-                <MetricCard label={metric.label} value={metric.value} icon={metric.icon} delta={metric.delta} />
-              </motion.div>
-            ))}
-          </motion.section>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Super Admin Active
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                        <Shield className="h-3.5 w-3.5" /> Full Platform Access
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        <Award className="h-3.5 w-3.5" /> 75%+ Cert Gate Enforced
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-black text-white tracking-tight">Super Admin Executive Center</h2>
+                    <p className="text-sm text-slate-300 mt-1 max-w-2xl">
+                      Full administrative control over multi-domain question banks (Mechanical, Civil, Electronics, Commerce, Finance, Management, Marketing, HR, Design, Healthcare, IT), adaptive AI interviews, candidate personas, and verified certificates.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => setActiveTab('test-users')}
+                      className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="h-4 w-4" /> Pre-Production Users (Beta)
+                    </button>
+                    <Link
+                      to="/interview/dynamic"
+                      className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-white/10 transition-all flex items-center gap-2"
+                    >
+                      <Video className="h-4 w-4 text-cyan-400" /> Launch AI Interview
+                    </Link>
+                  </div>
+                </div>
 
-      <motion.section
-        id="moderation"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.3 }}
-        className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-      >
-        {[
-          { label: 'Pending companies', value: moderationData?.pendingCompanies ?? 0, icon: Shield },
-          { label: 'Pending jobs', value: moderationData?.pendingJobs ?? 0, icon: UploadCloud },
-          { label: 'Pending reports', value: moderationData?.pendingReports ?? 0, icon: FilePlus2 },
-          { label: 'Flagged posts', value: moderationData?.flaggedPosts ?? 0, icon: MailCheck },
-        ].map((metric) => (
-          <MetricCard key={metric.label} label={metric.label} value={metric.value} icon={metric.icon} />
-        ))}
-      </motion.section>
+                {/* Live Real-Time Database Metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/10">
+                  <div className="bg-slate-950/70 border border-white/5 rounded-2xl p-4">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Question Catalog</span>
+                      <Database className="h-3.5 w-3.5 text-cyan-400" />
+                    </p>
+                    <div className="flex items-baseline justify-between mt-2">
+                      <span className="text-3xl font-extrabold text-white">{overview?.activeQuestions || 48}</span>
+                      <span className="text-xs font-semibold text-cyan-400">11 Domains</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Mechanical, Civil, Comm, IT, etc.</p>
+                  </div>
+                  <div className="bg-slate-950/70 border border-white/5 rounded-2xl p-4">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Interviews Evaluated</span>
+                      <Activity className="h-3.5 w-3.5 text-emerald-400" />
+                    </p>
+                    <div className="flex items-baseline justify-between mt-2">
+                      <span className="text-3xl font-extrabold text-white">{overview?.interviews || overview?.completedSessions || 0}</span>
+                      <span className="text-xs font-semibold text-emerald-400">10–15 Questions</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Adaptive 5-Competency Engine</p>
+                  </div>
+                  <div className="bg-slate-950/70 border border-white/5 rounded-2xl p-4">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Test Personas</span>
+                      <Users className="h-3.5 w-3.5 text-purple-400" />
+                    </p>
+                    <div className="flex items-baseline justify-between mt-2">
+                      <span className="text-3xl font-extrabold text-white">{overview?.testUsersCount || 0}</span>
+                      <span className="text-xs font-semibold text-purple-400">Granular Reset</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">One-click simulated accounts</p>
+                  </div>
+                  <div className="bg-slate-950/70 border border-white/5 rounded-2xl p-4">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Certificates</span>
+                      <Award className="h-3.5 w-3.5 text-amber-400" />
+                    </p>
+                    <div className="flex items-baseline justify-between mt-2">
+                      <span className="text-3xl font-extrabold text-white">{overview?.totalCertificates || 0}</span>
+                      <span className="text-xs font-semibold text-amber-400">&ge;75% Gate</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Publicly verifiable ledgers</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Quick Platform Switcher (Access Everything as Super Admin) */}
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 backdrop-blur-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Layers className="h-5 w-5 text-cyan-400" /> Super Admin Full Platform Navigation
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">You have complete access to test, review, and experience all candidate and recruiter views directly.</p>
+                  </div>
+                  <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
+                    Omni-Access Enabled
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <Link
+                    to="/interview/dynamic"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-white/5 bg-slate-800/60 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-center group"
+                  >
+                    <Video className="h-5 w-5 text-cyan-400 group-hover:scale-110 transition-transform mb-1.5" />
+                    <span className="text-xs font-semibold text-white">Adaptive Interview</span>
+                    <span className="text-[10px] text-slate-400">10-15 Question Simulator</span>
+                  </Link>
+                  <button
+                    onClick={() => setActiveTab('questions')}
+                    className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-white/5 bg-slate-800/60 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-center group cursor-pointer"
+                  >
+                    <FilePlus2 className="h-5 w-5 text-blue-400 group-hover:scale-110 transition-transform mb-1.5" />
+                    <span className="text-xs font-semibold text-white">Question Bank & AI</span>
+                    <span className="text-[10px] text-slate-400">Multi-Domain Catalog</span>
+                  </button>
+                  <Link
+                    to="/career-twin"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-white/5 bg-slate-800/60 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-center group"
+                  >
+                    <BrainCircuit className="h-5 w-5 text-purple-400 group-hover:scale-110 transition-transform mb-1.5" />
+                    <span className="text-xs font-semibold text-white">Career Twin</span>
+                    <span className="text-[10px] text-slate-400">Diagnostic Memory</span>
+                  </Link>
+                  <Link
+                    to="/dashboard"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-white/5 bg-slate-800/60 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-center group"
+                  >
+                    <LineChart className="h-5 w-5 text-emerald-400 group-hover:scale-110 transition-transform mb-1.5" />
+                    <span className="text-xs font-semibold text-white">Student Portal</span>
+                    <span className="text-[10px] text-slate-400">Candidate Experience</span>
+                  </Link>
+                  <Link
+                    to="/hr"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-white/5 bg-slate-800/60 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-center group"
+                  >
+                    <Building2 className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform mb-1.5" />
+                    <span className="text-xs font-semibold text-white">Recruiter Portal</span>
+                    <span className="text-[10px] text-slate-400">HR Hiring Hub</span>
+                  </Link>
+                  <Link
+                    to="/certificates"
+                    className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-white/5 bg-slate-800/60 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-center group"
+                  >
+                    <Award className="h-5 w-5 text-rose-400 group-hover:scale-110 transition-transform mb-1.5" />
+                    <span className="text-xs font-semibold text-white">Certificates</span>
+                    <span className="text-[10px] text-slate-400">Approvals & QR Ledgers</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Multi-Domain Question Catalog Distribution */}
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 backdrop-blur-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Database className="h-5 w-5 text-cyan-400" /> Multi-Career Domain Catalog ({overview?.activeQuestions || 48} Questions)
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Real-world technical questions categorized across diverse engineering and non-engineering careers.</p>
+                  </div>
+                  <button onClick={() => setActiveTab('questions')} className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold cursor-pointer">
+                    Manage Questions & AI <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {[
+                    { domain: 'Mechanical Engineering', count: 7, desc: 'Thermodynamics, HVAC, GD&T, Milling' },
+                    { domain: 'Civil Engineering', count: 4, desc: 'Structural load, Concrete, Hydraulics' },
+                    { domain: 'Electronics', count: 4, desc: 'Microcontrollers, I2C/SPI, PCB layout' },
+                    { domain: 'Commerce', count: 3, desc: 'Double-entry, GST/VAT, Reconciliation' },
+                    { domain: 'Finance', count: 4, desc: 'DCF, WACC, Working capital, CAPM' },
+                    { domain: 'Management', count: 3, desc: 'Agile/Scrum, Stakeholder conflicts' },
+                    { domain: 'Marketing', count: 3, desc: 'CAC/LTV, Funnel conversion, SEO' },
+                    { domain: 'HR', count: 3, desc: 'Behavioral interviews, Conflict, Retention' },
+                    { domain: 'Design', count: 3, desc: 'Design systems, Accessibility, UX' },
+                    { domain: 'Computer Science', count: 12, desc: 'System design, REST APIs, Microservices' },
+                    { domain: 'General Behavioral', count: 2, desc: 'Problem solving, Cross-functional work' }
+                  ].map((d) => (
+                    <div key={d.domain} className="p-3.5 rounded-xl border border-white/5 bg-slate-950/60">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white truncate">{d.domain}</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          {d.count} Qs
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-1">{d.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <motion.div 
@@ -853,6 +1251,334 @@ const MainAdminDashboard = () => {
       </motion.section>
 
             </>
+          )}
+
+          {activeTab === 'questions' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6"
+            >
+              {/* Question Bank Control Header */}
+              <div className="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900/90 to-cyan-950/40 p-6 shadow-2xl backdrop-blur-xl">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                        <Database className="h-3.5 w-3.5" /> Question Bank Dataset
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        <Sparkles className="h-3.5 w-3.5" /> AI Generator Integrated
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> XLS / CSV Native
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-black text-white tracking-tight">Question Bank & AI Engine</h2>
+                    <p className="text-sm text-slate-300 mt-1 max-w-2xl">
+                      Create, AI-generate, upload from Excel/CSV, and download the full questions & answers dataset across all 11 career domains.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      onClick={() => setShowAiGenerateModal(true)}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-purple-500/20 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="h-4 w-4" /> AI Auto-Generate
+                    </button>
+                    <button
+                      onClick={() => setShowCreateQuestionModal(true)}
+                      className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> Add Question
+                    </button>
+                    <button
+                      onClick={() => handleExportQuestions('xlsx')}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer"
+                      title="Download full dataset as Excel .xlsx with questions and answers"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" /> Download Excel (.xlsx)
+                    </button>
+                    <button
+                      onClick={() => handleExportQuestions('csv')}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer"
+                      title="Download full dataset as CSV with questions and answers"
+                    >
+                      <Download className="h-4 w-4" /> Download CSV
+                    </button>
+                    <button
+                      onClick={() => setShowUploadModal(true)}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <UploadCloud className="h-4 w-4 text-cyan-400" /> Upload XLS/CSV
+                    </button>
+                    <button
+                      onClick={() => handleDownloadTemplate('xlsx')}
+                      className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/10 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Download sample Excel template to fill and upload"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-slate-400" /> Template
+                    </button>
+                  </div>
+                </div>
+
+                {/* Domain Selector Pills */}
+                <div className="mt-6 pt-5 border-t border-white/10">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+                    <Filter className="h-3.5 w-3.5 text-cyan-400" /> Select Career Domain:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {CAREER_DOMAINS.map((domain) => (
+                      <button
+                        key={domain}
+                        onClick={() => {
+                          setQuestionDomain(domain);
+                          setQuestionsPage(1);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          questionDomain === domain
+                            ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-md shadow-cyan-500/20 scale-105'
+                            : 'bg-slate-950/70 border border-white/5 text-slate-300 hover:border-cyan-500/30 hover:text-white'
+                        }`}
+                      >
+                        {domain}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Search & Difficulty Filter Bar */}
+                <div className="mt-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={questionSearch}
+                      onChange={(e) => setQuestionSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') fetchQuestionBank(1);
+                      }}
+                      placeholder="Search questions, topics, answers, keywords..."
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/80 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={questionDifficulty}
+                      onChange={(e) => {
+                        setQuestionDifficulty(e.target.value);
+                        setQuestionsPage(1);
+                      }}
+                      className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2.5 text-sm text-slate-200 focus:border-cyan-400 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Difficulties</option>
+                      <option value="Easy">Easy / Basic</option>
+                      <option value="Medium">Medium / Intermediate</option>
+                      <option value="Hard">Hard / Advanced</option>
+                      <option value="Expert">Expert</option>
+                    </select>
+
+                    <button
+                      onClick={() => fetchQuestionBank(1)}
+                      className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-white/10 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Search className="h-4 w-4" /> Filter
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setQuestionSearch('');
+                        setQuestionDomain('ALL');
+                        setQuestionDifficulty('ALL');
+                      }}
+                      className="p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white border border-white/10 cursor-pointer"
+                      title="Reset filters"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Questions Count & Status Summary */}
+              <div className="flex items-center justify-between px-2">
+                <p className="text-sm text-slate-400 font-medium">
+                  Showing <span className="font-bold text-white">{questions.length}</span> of{' '}
+                  <span className="font-bold text-cyan-400">{questionsTotal}</span> questions
+                  {questionDomain !== 'ALL' && <span> in <strong className="text-white">{questionDomain}</strong></span>}
+                </p>
+                <div className="text-xs text-slate-500">
+                  Page {questionsPage} of {questionsTotalPages}
+                </div>
+              </div>
+
+              {/* Questions List */}
+              {questionsLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-slate-900/40 rounded-3xl border border-white/5">
+                  <Loader2 className="h-10 w-10 text-cyan-400 animate-spin mb-3" />
+                  <p className="text-slate-300 font-medium text-sm">Loading Question Bank dataset...</p>
+                </div>
+              ) : questions.length === 0 ? (
+                /* Empty state with instant AI create button */
+                <div className="p-8 text-center rounded-3xl border border-cyan-500/20 bg-slate-900/60 backdrop-blur-md">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-4">
+                    <Sparkles className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">No questions found matching your filter</h3>
+                  <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
+                    {questionDomain !== 'ALL'
+                      ? `The dataset currently has no questions for "${questionDomain}". AI can automatically create high-quality questions and add them to the dataset right now.`
+                      : 'No questions matched your search query. You can add questions manually, import via Excel/CSV, or generate with AI.'}
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    <button
+                      onClick={() => {
+                        setAiForm(prev => ({
+                          ...prev,
+                          field: questionDomain !== 'ALL' ? questionDomain : 'Computer Science',
+                          topic: questionSearch || (questionDomain !== 'ALL' ? `${questionDomain} Core Principles` : 'Fundamentals'),
+                        }));
+                        setShowAiGenerateModal(true);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-purple-500/20 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="h-4 w-4" /> Generate Questions with AI Now
+                    </button>
+                    <button
+                      onClick={() => setShowCreateQuestionModal(true)}
+                      className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-white/10 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> Add Question Manually
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {questions.map((q) => {
+                    const isExpanded = expandedQuestionId === q._id;
+                    const diffColor =
+                      q.difficulty === 'Easy'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : q.difficulty === 'Medium'
+                        ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                        : q.difficulty === 'Hard'
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+
+                    return (
+                      <div
+                        key={q._id}
+                        className="rounded-2xl border border-white/10 bg-slate-900/60 p-5 hover:border-cyan-500/30 transition-all backdrop-blur-sm shadow-lg"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-lg text-xs font-extrabold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                {q.field || 'General'}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-white/5">
+                                {q.topic}
+                              </span>
+                              {q.subtopic && (
+                                <span className="px-2 py-0.5 rounded-md text-[11px] bg-slate-800/50 text-slate-400">
+                                  {q.subtopic}
+                                </span>
+                              )}
+                              <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border ${diffColor}`}>
+                                {q.difficulty}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-800/80 text-slate-400 border border-white/5">
+                                {q.interviewType || 'Technical'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-lg text-[11px] bg-slate-950 text-slate-400 border border-white/5">
+                                {q.source || 'Manual'}
+                              </span>
+                            </div>
+
+                            <h4 className="text-base font-bold text-white pt-1">{q.question}</h4>
+
+                            {/* Keywords */}
+                            {Array.isArray(q.keywords) && q.keywords.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <span className="text-[11px] text-slate-400">Keywords:</span>
+                                {q.keywords.map((kw: string, i: number) => (
+                                  <span
+                                    key={i}
+                                    className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-950/80 text-slate-300 border border-white/5"
+                                  >
+                                    {kw}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Expandable Model Answer */}
+                            {isExpanded && (
+                              <div className="mt-3 p-4 rounded-xl border border-cyan-500/20 bg-slate-950/90 text-sm text-slate-200 space-y-2">
+                                <div className="flex items-center justify-between text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                                  <span>Model Answer / Solution</span>
+                                  <span className="text-[10px] text-slate-400 lowercase">expected candidate response</span>
+                                </div>
+                                <p className="whitespace-pre-wrap leading-relaxed text-slate-300 text-xs sm:text-sm">
+                                  {q.answer || 'No answer provided.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-start">
+                            <button
+                              onClick={() => setExpandedQuestionId(isExpanded ? null : q._id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/20 transition-all cursor-pointer"
+                            >
+                              {isExpanded ? 'Hide Answer' : 'Show Answer'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteQuestion(q._id, q.question)}
+                              className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-all cursor-pointer"
+                              title="Delete Question"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pagination Bar */}
+              {questionsTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                  <button
+                    onClick={() => {
+                      if (questionsPage > 1) fetchQuestionBank(questionsPage - 1);
+                    }}
+                    disabled={questionsPage <= 1}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </button>
+                  <span className="text-sm text-slate-400 font-medium">
+                    Page <strong className="text-white">{questionsPage}</strong> of{' '}
+                    <strong className="text-white">{questionsTotalPages}</strong>
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (questionsPage < questionsTotalPages) fetchQuestionBank(questionsPage + 1);
+                    }}
+                    disabled={questionsPage >= questionsTotalPages}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </motion.div>
           )}
 
           {activeTab === 'certificates' && (
@@ -1555,6 +2281,16 @@ const MainAdminDashboard = () => {
             </motion.section>
           )}
 
+          {activeTab === 'test-users' && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <TestUserManager />
+            </motion.section>
+          )}
+
       {/* Reset Password Modal */}
       {showResetModal && selectedAdminForReset && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1842,6 +2578,382 @@ const MainAdminDashboard = () => {
           </div>
         );
       })()}
+
+      {/* MODAL: Create Question Manually */}
+      {showCreateQuestionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Add Question to Dataset</h3>
+                  <p className="text-xs text-slate-400">Add a high-quality interview question with model answer and keywords</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateQuestionModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSingleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Career Domain *
+                  </label>
+                  <select
+                    value={singleForm.field}
+                    onChange={(e) => setSingleForm({ ...singleForm, field: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                    required
+                  >
+                    {CAREER_DOMAINS.filter(d => d !== 'ALL').map((domain) => (
+                      <option key={domain} value={domain}>{domain}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Topic *
+                  </label>
+                  <input
+                    type="text"
+                    value={singleForm.topic}
+                    onChange={(e) => setSingleForm({ ...singleForm, topic: e.target.value })}
+                    placeholder="e.g., Thermodynamics, Data Structures, Auditing"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Subtopic (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={singleForm.subtopic}
+                    onChange={(e) => setSingleForm({ ...singleForm, subtopic: e.target.value })}
+                    placeholder="e.g., Rankine Cycle, Event Loop"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Difficulty *
+                  </label>
+                  <select
+                    value={singleForm.difficulty}
+                    onChange={(e) => setSingleForm({ ...singleForm, difficulty: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  >
+                    <option value="Easy">Easy (Basic)</option>
+                    <option value="Medium">Medium (Intermediate)</option>
+                    <option value="Hard">Hard (Advanced)</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Interview Type
+                  </label>
+                  <select
+                    value={singleForm.interviewType}
+                    onChange={(e) => setSingleForm({ ...singleForm, interviewType: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  >
+                    <option value="Technical">Technical</option>
+                    <option value="Scenario">Scenario</option>
+                    <option value="HR">HR</option>
+                    <option value="Behavioral">Behavioral</option>
+                    <option value="RapidFire">Rapid Fire</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Question *
+                </label>
+                <textarea
+                  value={singleForm.question}
+                  onChange={(e) => setSingleForm({ ...singleForm, question: e.target.value })}
+                  rows={3}
+                  placeholder="Enter the complete question prompt..."
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Model Answer / Solution *
+                </label>
+                <textarea
+                  value={singleForm.answer}
+                  onChange={(e) => setSingleForm({ ...singleForm, answer: e.target.value })}
+                  rows={4}
+                  placeholder="Enter the detailed expected answer or evaluation benchmark..."
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Keywords (comma or semicolon separated)
+                </label>
+                <input
+                  type="text"
+                  value={singleForm.keywords}
+                  onChange={(e) => setSingleForm({ ...singleForm, keywords: e.target.value })}
+                  placeholder="e.g., efficiency, thermodynamics, steam, pressure"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateQuestionModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingSingle}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {creatingSingle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Save to Dataset
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AI Auto-Generate Questions */}
+      {showAiGenerateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-purple-500/40 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 my-8">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">AI Question Auto-Generator</h3>
+                  <p className="text-xs text-slate-400">Generate high-quality questions and automatically save them into the active dataset</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAiGenerateModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAiGenerateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Target Domain *
+                </label>
+                <select
+                  value={aiForm.field}
+                  onChange={(e) => setAiForm({ ...aiForm, field: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-purple-400 focus:outline-none"
+                  required
+                >
+                  {CAREER_DOMAINS.filter(d => d !== 'ALL').map((domain) => (
+                    <option key={domain} value={domain}>{domain}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Topic *
+                </label>
+                <input
+                  type="text"
+                  value={aiForm.topic}
+                  onChange={(e) => setAiForm({ ...aiForm, topic: e.target.value })}
+                  placeholder="e.g., Heat Transfer, Valuation, React Hooks, Supply Chain"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-purple-400 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Difficulty
+                  </label>
+                  <select
+                    value={aiForm.difficulty}
+                    onChange={(e) => setAiForm({ ...aiForm, difficulty: e.target.value })}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-purple-400 focus:outline-none"
+                  >
+                    <option value="Easy">Easy (Basic)</option>
+                    <option value="Medium">Medium (Intermediate)</option>
+                    <option value="Hard">Hard (Advanced)</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Number of Questions
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={aiForm.count}
+                    onChange={(e) => setAiForm({ ...aiForm, count: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-purple-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs text-purple-300/80 leading-relaxed">
+                💡 Questions created by AI include complete model answers, difficulty metadata, keywords, and follow-up scenarios. They will automatically appear in this active catalog and in student AI interview simulations.
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowAiGenerateModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={generatingAi}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold shadow-lg shadow-purple-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {generatingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {generatingAi ? 'Generating Questions...' : 'Generate & Add to Dataset'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Upload Excel / CSV File */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 my-8">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Import Questions via File</h3>
+                  <p className="text-xs text-slate-400">Upload Excel (.xlsx, .xls) or CSV (.csv) spreadsheet</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Select Format
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setUploadFormat('excel')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      uploadFormat === 'excel'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                        : 'border-white/10 bg-slate-950 text-slate-400'
+                    }`}
+                  >
+                    Excel (.xlsx, .xls)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadFormat('csv')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      uploadFormat === 'csv'
+                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                        : 'border-white/10 bg-slate-950 text-slate-400'
+                    }`}
+                  >
+                    CSV (.csv)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Choose Spreadsheet File *
+                </label>
+                <input
+                  type="file"
+                  accept={uploadFormat === 'excel' ? '.xlsx, .xls' : '.csv'}
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer bg-slate-950 p-2 rounded-xl border border-white/10"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-400">
+                <span>Need formatting reference?</span>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate(uploadFormat === 'excel' ? 'xlsx' : 'csv')}
+                  className="text-cyan-400 hover:text-cyan-300 font-semibold underline cursor-pointer"
+                >
+                  Download Sample {uploadFormat === 'excel' ? 'Excel' : 'CSV'} Template
+                </button>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadLoading || !uploadFile}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 text-sm font-bold shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {uploadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+                  {uploadLoading ? 'Uploading & Processing...' : 'Upload to Dataset'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

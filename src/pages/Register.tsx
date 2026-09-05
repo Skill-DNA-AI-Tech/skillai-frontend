@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
-import { SocialLoginButtons } from '../components/SocialLoginButtons';
+
 
 const Register = () => {
   const { login } = useAuth();
@@ -30,22 +30,7 @@ const Register = () => {
   const [showError, setShowError] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleSocialSignup = (socialUser: any) => {
-    const names = (socialUser.name || '').trim().split(/\s+/);
-    const firstName = names[0] || '';
-    const lastName = names.slice(1).join(' ') || '';
 
-    setFormData(prev => ({
-      ...prev,
-      firstName,
-      lastName,
-      email: socialUser.email,
-    }));
-
-    if (socialUser.avatarUrl) {
-      setAvatarPreview(socialUser.avatarUrl);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -227,6 +212,17 @@ const Register = () => {
                   <p className="text-sm text-slate-400">Complete all fields for accurate analysis</p>
                 </div>
               </div>
+
+              {/* Controlled Registration Notice */}
+              <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 text-xs text-amber-200">
+                <div className="font-semibold text-white flex items-center gap-1.5 mb-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  Admin-Controlled Testing Mode (ADMIN_ONLY)
+                </div>
+                <p>
+                  Public open registration is restricted. Testing candidates should log in with their administrator-provisioned test accounts (e.g. <code className="text-cyan-300 font-mono">TEST-MECH-01</code>) on the <Link to="/auth" className="underline font-bold text-cyan-400 hover:text-cyan-300">Login Page</Link>.
+                </p>
+              </div>
               
               {/* Profile Image Upload */}
               <div className="relative group">
@@ -257,10 +253,7 @@ const Register = () => {
               </div>
             </div>
 
-            <div className="mb-6 p-4 rounded-xl border border-white/5 bg-white/[0.01]">
-              <p className="text-xs text-slate-400 mb-2 font-medium">Quick sign up: Autofill profile with social accounts</p>
-              <SocialLoginButtons onSuccess={handleSocialSignup} onError={(err) => alert(err)} role="student" />
-            </div>
+
             
             <form className="grid gap-6">
               

@@ -1,4 +1,4 @@
-import { Menu, Sparkles, X, LogOut, User, LineChart, Building2, UsersRound, ShieldCheck } from 'lucide-react';
+import { Menu, Sparkles, X, LogOut, User, LineChart, Building2, UsersRound, ShieldCheck, FilePlus2, Video, BrainCircuit } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,14 +34,12 @@ const AppShell = () => {
     if (!role) {
       return ['Home', 'Community'].includes(item.label);
     }
+    if (isAdmin) {
+      // Admins have full access across the entire platform
+      return ['Home', role === 'MAIN_ADMIN' ? 'Main Admin' : 'Admin', 'Interview', 'Career Twin', 'Learning', 'Jobs', 'HR', 'Student', 'Community'].includes(item.label);
+    }
     if (role === 'HR') {
       return ['Home', 'HR', 'Jobs', 'Community'].includes(item.label);
-    }
-    if (role === 'MAIN_ADMIN') {
-      return ['Home', 'Main Admin', 'Community'].includes(item.label);
-    }
-    if (role === 'ADMIN') {
-      return ['Home', 'Admin', 'Community'].includes(item.label);
     }
     return ['Home', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
@@ -163,25 +161,57 @@ const AppShell = () => {
                               HR Dashboard
                             </Link>
                           )}
-                          {role === 'ADMIN' && (
-                            <Link
-                              to="/admin"
-                              onClick={() => setShowDropdown(false)}
-                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
-                            >
-                              <UsersRound className="h-4 w-4 text-cyan-400" />
-                              Admin Dashboard
-                            </Link>
-                          )}
-                          {role === 'MAIN_ADMIN' && (
-                            <Link
-                              to="/main-admin"
-                              onClick={() => setShowDropdown(false)}
-                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
-                            >
-                              <ShieldCheck className="h-4 w-4 text-cyan-400" />
-                              Main Admin Dashboard
-                            </Link>
+                          {(role === 'ADMIN' || role === 'MAIN_ADMIN') && (
+                            <>
+                              <Link
+                                to={role === 'MAIN_ADMIN' ? '/main-admin' : '/admin'}
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-cyan-300 font-semibold hover:bg-cyan-500/10 transition-colors"
+                              >
+                                <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                                {role === 'MAIN_ADMIN' ? 'Main Admin Portal' : 'Admin Portal'}
+                              </Link>
+                              <Link
+                                to="/admin/questions"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <FilePlus2 className="h-4 w-4 text-cyan-400" />
+                                Question Bank
+                              </Link>
+                              <Link
+                                to="/interview/dynamic"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <Video className="h-4 w-4 text-cyan-400" />
+                                AI Interview
+                              </Link>
+                              <Link
+                                to="/career-twin"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <BrainCircuit className="h-4 w-4 text-cyan-400" />
+                                Career Twin
+                              </Link>
+                              <Link
+                                to="/dashboard"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <LineChart className="h-4 w-4 text-cyan-400" />
+                                Student View
+                              </Link>
+                              <Link
+                                to="/hr"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <Building2 className="h-4 w-4 text-cyan-400" />
+                                HR View
+                              </Link>
+                            </>
                           )}
                           <div className="my-1 border-t border-white/5" />
                           <button
@@ -284,25 +314,41 @@ const AppShell = () => {
                       HR Dashboard
                     </Link>
                   )}
-                  {role === 'ADMIN' && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
-                    >
-                      <UsersRound className="h-4 w-4 text-cyan-400" />
-                      Admin Dashboard
-                    </Link>
-                  )}
-                  {role === 'MAIN_ADMIN' && (
-                    <Link
-                      to="/main-admin"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
-                    >
-                      <ShieldCheck className="h-4 w-4 text-cyan-400" />
-                      Main Admin Dashboard
-                    </Link>
+                  {(role === 'ADMIN' || role === 'MAIN_ADMIN') && (
+                    <>
+                      <Link
+                        to={role === 'MAIN_ADMIN' ? '/main-admin' : '/admin'}
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/20"
+                      >
+                        <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                        {role === 'MAIN_ADMIN' ? 'Main Admin Portal' : 'Admin Portal'}
+                      </Link>
+                      <Link
+                        to="/admin/questions"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <FilePlus2 className="h-4 w-4 text-cyan-400" />
+                        Question Bank
+                      </Link>
+                      <Link
+                        to="/interview/dynamic"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <Video className="h-4 w-4 text-cyan-400" />
+                        AI Interview
+                      </Link>
+                      <Link
+                        to="/dashboard"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <LineChart className="h-4 w-4 text-cyan-400" />
+                        Student View
+                      </Link>
+                    </>
                   )}
                   <button
                     onClick={() => {

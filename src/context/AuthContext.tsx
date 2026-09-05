@@ -18,6 +18,7 @@ interface AuthContextType {
   role: Role;
   token?: string;
   refreshToken?: string;
+  isLoading: boolean;
   login: (user: UserProfile, token: string, refreshToken?: string) => void;
   logout: () => void;
 }
@@ -26,44 +27,85 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'skilldna_auth';
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [token, setToken] = useState<string | undefined>(undefined);
-  const [refreshToken, setRefreshToken] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
+const getStoredAuth = (): { user: UserProfile | null; token?: string; refreshToken?: string } => {
+  if (typeof window === 'undefined') {
+    return { user: null, token: undefined, refreshToken: undefined };
+  }
+  try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as { user: UserProfile; token: string; refreshToken?: string };
-        const normalizedRole = normalizeRole(parsed.user.role);
-        setUser({ ...parsed.user, role: normalizedRole as Exclude<Role, null> });
-        setToken(parsed.token);
-        setRefreshToken(parsed.refreshToken);
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
+      const parsed = JSON.parse(saved) as { user: UserProfile; token: string; refreshToken?: string };
+      if (parsed?.user && parsed?.token) {
+        const normalizedRole = normalizeRole(parsed.user.role, parsed.user.email);
+        return {
+          user: { ...parsed.user, role: normalizedRole as Exclude<Role, null> },
+          token: parsed.token,
+          refreshToken: parsed.refreshToken,
+        };
       }
+    }
+  } catch (err) {
+    console.warn('Failed to parse saved auth state from localStorage:', err);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
+  }
+  return { user: null, token: undefined, refreshToken: undefined };
+};
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [authState, setAuthState] = useState(getStoredAuth);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Re-verify localStorage once mounted in case of multi-tab updates
+    const stored = getStoredAuth();
+    if (stored.user && !authState.user) {
+      setAuthState(stored);
     }
   }, []);
 
   const login = (newUser: UserProfile, newToken: string, newRefreshToken?: string) => {
-    const normalizedRole = normalizeRole(newUser.role);
+    const normalizedRole = normalizeRole(newUser.role, newUser.email);
     const userWithNormalizedRole = { ...newUser, role: normalizedRole as Exclude<Role, null> };
-    setUser(userWithNormalizedRole);
-    setToken(newToken);
-    setRefreshToken(newRefreshToken);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: userWithNormalizedRole, token: newToken, refreshToken: newRefreshToken }));
+    setAuthState({
+      user: userWithNormalizedRole,
+      token: newToken,
+      refreshToken: newRefreshToken,
+    });
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ user: userWithNormalizedRole, token: newToken, refreshToken: newRefreshToken })
+      );
+    } catch (e) {
+      console.error('Failed to persist auth to localStorage:', e);
+    }
   };
 
   const logout = () => {
-    setUser(null);
-    setToken(undefined);
-    setRefreshToken(undefined);
-    localStorage.removeItem(STORAGE_KEY);
+    setAuthState({ user: null, token: undefined, refreshToken: undefined });
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, role: user?.role ?? null, token, refreshToken, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user: authState.user,
+        role: authState.user?.role ?? null,
+        token: authState.token,
+        refreshToken: authState.refreshToken,
+        isLoading,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,12 +1,12 @@
 import { KeyRound, Mail, ShieldCheck, LogIn, Sparkles, AlertCircle } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { roleHome } from '../lib/rbac';
-import { SocialLoginButtons } from '../components/SocialLoginButtons';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 const Auth = () => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password'>('login');
@@ -22,10 +22,17 @@ const Auth = () => {
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [tempRefreshToken, setTempRefreshToken] = useState<string | null>(null);
 
-  const { login } = useAuth();
+  const { user, role: authRole, login } = useAuth();
   const navigate = useNavigate();
 
   const navigateToRole = (userRole: string) => navigate(roleHome(userRole));
+
+  // If already logged in, seamlessly redirect to appropriate portal
+  useEffect(() => {
+    if (user && authRole) {
+      navigateToRole(authRole);
+    }
+  }, [user, authRole]);
 
   const handleSocialSuccess = async (socialUser: any) => {
     setError(null);
@@ -87,41 +94,62 @@ const Auth = () => {
         const response = await apiRequest<any>('/auth/change-temp-password', {
           method: 'POST',
           body: JSON.stringify({ newPassword }),
-          token: tempToken || undefined,
+          token: tempToken!,
         });
 
-        setMessage('Password updated successfully! Logging you in...');
-        login({ 
-          _id: response._id, 
-          name: response.name, 
-          email: response.email, 
-          role: response.role, 
-          avatarUrl: response.avatarUrl 
-        }, tempToken!, response.refreshToken ?? tempRefreshToken ?? undefined);
+        setMessage(response.message || 'Password updated successfully. Please sign in with your new password.');
+        login(
+          { 
+            _id: response._id, 
+            name: response.name, 
+            email: response.email, 
+            role: response.role, 
+            avatarUrl: response.avatarUrl 
+          }, 
+          tempToken!, 
+          response.refreshToken ?? tempRefreshToken ?? undefined
+        );
         
         navigateToRole(response.role);
         return;
       }
 
-      let path = '/auth/login';
-      let payload: Record<string, any> = { email, password, role, name };
+      if (mode === 'login') {
+        const backendRes = await apiRequest<any>('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
 
-      if (mode === 'register') {
-        path = '/auth/register';
-      } else if (mode === 'forgot') {
-        path = '/auth/forgot-password';
-        payload = { email };
-      } else if (mode === 'reset') {
-        path = '/auth/reset-password';
-        payload = { email, otp, newPassword };
-      }
+        if (backendRes.requiresPasswordChange) {
+          setTempToken(backendRes.token);
+          setTempRefreshToken(backendRes.refreshToken ?? null);
+          setMode('change_temp_password');
+          setNewPassword('');
+          setMessage('Temporary password detected. Please choose a new secure password.');
+          return;
+        }
 
-      const response = await apiRequest<any>(path, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+        const userObj = backendRes.user || backendRes;
+        login(
+          {
+            _id: userObj.id || userObj._id || 'user-id',
+            name: userObj.name || email,
+            email: userObj.email || email,
+            role: userObj.role || 'student',
+            status: userObj.status || 'ACTIVE',
+            avatarUrl: userObj.avatarUrl,
+          },
+          backendRes.token,
+          backendRes.refreshToken
+        );
+        navigateToRole(userObj.role || 'student');
+        return;
+      } else if (mode === 'register') {
+        const response = await apiRequest<any>('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, password, role }),
+        });
 
-      if (mode === 'login' || mode === 'register') {
         if (!response.token) {
           setMessage(response.message || 'Account request received. Please wait for approval before signing in.');
           setMode('login');
@@ -129,22 +157,32 @@ const Auth = () => {
           return;
         }
 
-        if (response.requiresPasswordChange) {
-          setTempToken(response.token);
-          setTempRefreshToken(response.refreshToken ?? null);
-          setMode('change_temp_password');
-          setNewPassword('');
-          setMessage('Temporary password detected. Please choose a new secure password.');
-          return;
-        }
-
-        login({ _id: response._id, name: response.name, email: response.email, role: response.role, status: response.status, avatarUrl: response.avatarUrl }, response.token, response.refreshToken);
+        login(
+          {
+            _id: response._id,
+            name: response.name,
+            email: response.email,
+            role: response.role,
+            status: response.status,
+            avatarUrl: response.avatarUrl,
+          },
+          response.token,
+          response.refreshToken
+        );
         navigateToRole(response.role);
       } else if (mode === 'forgot') {
-        setMessage('OTP sent to your email. Enter it below to reset your password.');
+        const res = await apiRequest<any>('/auth/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        setMessage(res.message || 'OTP sent to your email. Enter it below to reset your password.');
         setMode('reset');
       } else if (mode === 'reset') {
-        setMessage('Password reset successful. Please sign in with your new password.');
+        const res = await apiRequest<any>('/auth/reset-password', {
+          method: 'POST',
+          body: JSON.stringify({ email: email.trim(), otp: otp.trim(), newPassword }),
+        });
+        setMessage(res.message || 'Password reset successful. Please sign in with your new password.');
         setMode('login');
         setPassword('');
         setOtp('');
@@ -225,6 +263,14 @@ const Auth = () => {
               </div>
             </div>
 
+            {/* Testing Mode Banner */}
+            <div className="mb-6 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 text-xs text-cyan-300 flex items-start gap-2.5">
+              <Sparkles className="h-4 w-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-white">Controlled Testing Mode:</span> Candidate personas can log in using either their assigned Email or Test User ID (e.g. <code className="text-cyan-200 font-mono">TEST-MECH-01</code>). Self-registration is restricted by the administrator.
+              </div>
+            </div>
+
             <form className="grid gap-5" onSubmit={handleSubmit}>
               {mode !== 'change_temp_password' && (
                 <div className="flex flex-wrap items-center gap-3">
@@ -252,9 +298,9 @@ const Auth = () => {
                 </div>
               )}
 
-              {(mode === 'login' || mode === 'register') && (
+              {mode === 'login' && (
                 <>
-                  <SocialLoginButtons onSuccess={handleSocialSuccess} onError={(err) => setError(err)} role={role} />
+                  <GoogleLoginButton onSuccess={(user) => navigateToRole(user.role)} onFailure={(err) => setError(err)} />
                   <div className="relative my-2 text-center">
                     <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-white/5" style={{ transform: 'translateY(-50%)' }} />
                     <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or continue with email</span>
@@ -277,13 +323,13 @@ const Auth = () => {
 
               {mode !== 'change_temp_password' && (
                 <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  Email Address
+                  {mode === 'login' ? 'Email Address or Test User ID' : 'Email Address'}
                   <input
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                    type="email"
-                    placeholder="name@example.com"
+                    type={mode === 'login' ? 'text' : 'email'}
+                    placeholder={mode === 'login' ? 'name@example.com or TEST-MECH-01' : 'name@example.com'}
                     required
                   />
                 </label>

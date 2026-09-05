@@ -237,17 +237,36 @@ const InterviewCoach = () => {
     
     const combinedTranscript = finalTranscriptData.map(t => `${t.role === 'ai' ? 'Interviewer' : 'Candidate'}: ${t.text}`).join('\n');
     
+    // Extract actual Q&A pairs
+    const qaPairs: Array<{ question: string; answer: string }> = [];
+    for (let i = 0; i < finalTranscriptData.length; i++) {
+      if (finalTranscriptData[i].role === 'ai') {
+        const qText = finalTranscriptData[i].text;
+        const nextAnswer = finalTranscriptData.slice(i + 1).find(m => m.role === 'user');
+        qaPairs.push({
+          question: qText,
+          answer: nextAnswer ? nextAnswer.text : '',
+        });
+      }
+    }
+
+    // Calculate real user words spoken
+    const userWordsCount = finalTranscriptData
+      .filter(t => t.role === 'user')
+      .reduce((sum, item) => sum + (item.text ? item.text.split(/\s+/).filter(Boolean).length : 0), 0);
+
+    const estimatedDuration = Math.max(20, Math.round(userWordsCount * 0.8));
+    const estimatedWpm = Math.max(10, Math.min(180, Math.round((userWordsCount / Math.max(1, estimatedDuration / 60)))));
+
     try {
       const demoToken = token || "demo-token";
       const data = await apiRequest<any>('/ai/interview', {
         method: 'POST',
         body: JSON.stringify({
           transcript: combinedTranscript,
-          durationSeconds: combinedTranscript.length / 2, // Rough estimate
-          confidenceLevel: Math.floor(Math.random() * 3) + 7,
-          eyeContactLevel: Math.floor(Math.random() * 3) + 7,
-          wordsPerMinute: 110 + Math.floor(Math.random() * 30),
-          domainKeywords: ['leadership', 'development', 'management', 'growth']
+          qaPairs,
+          durationSeconds: estimatedDuration,
+          wordsPerMinute: estimatedWpm,
         }),
         token: demoToken
       });

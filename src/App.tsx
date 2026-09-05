@@ -44,12 +44,21 @@ const RouteFallback = () => (
 );
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
-  const { role } = useAuth();
+  const { role, isLoading } = useAuth();
   
+  if (isLoading) {
+    return <RouteFallback />;
+  }
+
   if (!role) {
     return <Navigate to="/auth" replace />;
   }
   
+  // Super Admin & Admin have unrestricted access to all platform features and views
+  if (role === 'MAIN_ADMIN' || role === 'ADMIN') {
+    return <>{children}</>;
+  }
+
   if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to="/" replace />;
   }
@@ -68,8 +77,8 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Home />} />
-          <Route path="/main-admin" element={<ProtectedRoute allowedRoles={['MAIN_ADMIN']}><MainAdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/main-admin" element={<ProtectedRoute allowedRoles={['MAIN_ADMIN', 'ADMIN']}><MainAdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN']}><MainAdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN']}><QuestionBankDashboard /></ProtectedRoute>} />
           <Route path="/hr" element={<ProtectedRoute allowedRoles={['HR']}><HrDashboard /></ProtectedRoute>} />
           <Route path="/recruiter" element={<Navigate to="/hr" replace />} />
