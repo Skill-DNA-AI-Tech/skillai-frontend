@@ -516,6 +516,7 @@ export const TestUserManager: React.FC = () => {
                   </tr>
                 ))}
               </tbody>
+            </table>
           </div>
         )}
       </div>
