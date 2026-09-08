@@ -428,6 +428,69 @@ const MainAdminDashboard = () => {
     improvements: '',
   });
 
+  // Certificate Template Designer & Audit State
+  const [certAdminSubTab, setCertAdminSubTab] = useState<'designer' | 'all' | 'pending'>('designer');
+  const [certTemplates, setCertTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [allCertificates, setAllCertificates] = useState<any[]>([]);
+  const [allCertsLoading, setAllCertsLoading] = useState(false);
+  const [allCertSearch, setAllCertSearch] = useState('');
+
+  const fetchCertTemplates = async () => {
+    try {
+      const res = await apiRequest<any[]>('/certificates/admin/templates');
+      setCertTemplates(res || []);
+      if (res && res.length > 0) {
+        const active = res.find((t: any) => t.isActive) || res[0];
+        setSelectedTemplate(active);
+      }
+    } catch (err) {
+      console.error('Failed to fetch certificate templates:', err);
+    }
+  };
+
+  const fetchAllCertificates = async () => {
+    try {
+      setAllCertsLoading(true);
+      const res = await apiRequest<any[]>('/certificates/admin/all');
+      setAllCertificates(res || []);
+    } catch (err) {
+      console.error('Failed to fetch all certificates:', err);
+    } finally {
+      setAllCertsLoading(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!selectedTemplate) return;
+    setSavingTemplate(true);
+    try {
+      await apiRequest('/certificates/admin/templates', {
+        method: 'POST',
+        body: JSON.stringify(selectedTemplate),
+      });
+      alert('Certificate template saved successfully!');
+      fetchCertTemplates();
+    } catch (err: any) {
+      alert('Failed to save template: ' + err.message);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleActivateTemplate = async (templateMongoId: string) => {
+    try {
+      await apiRequest(`/certificates/admin/templates/${templateMongoId}/activate`, {
+        method: 'POST',
+      });
+      alert('Template activated as the official system default!');
+      fetchCertTemplates();
+    } catch (err: any) {
+      alert('Failed to activate template: ' + err.message);
+    }
+  };
+
   // Page Settings State
   const [pageSettings, setPageSettings] = useState<any[]>([]);
   const [pageSettingsLoading, setPageSettingsLoading] = useState(false);
@@ -539,6 +602,8 @@ const MainAdminDashboard = () => {
     if (activeTab === 'certificates') {
       fetchPendingCertificates();
       fetchAdminSignature();
+      fetchCertTemplates();
+      fetchAllCertificates();
     } else if (activeTab === 'page-settings') {
       fetchPageSettings();
     } else if (activeTab === 'feedback') {
@@ -1588,141 +1653,574 @@ const MainAdminDashboard = () => {
               transition={{ duration: 0.5 }}
               className="space-y-6"
             >
-              {/* Header */}
+              {/* Header & Sub-Tab Switcher */}
               <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md relative overflow-hidden">
                 <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-500/10 blur-[80px]" />
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Award className="h-6 w-6 text-cyan-400" />
-                  Certificate Approvals & Digital Signature Settings
-                </h2>
-                <p className="mt-2 text-slate-400 text-sm">
-                  Configure your digital handwritten signature and audit requested certificates. Signing a certificate will transition it to APPROVED and stamp it with your official digital signature.
-                </p>
-              </div>
-
-              {/* Digital Signature Panel */}
-              <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <PenTool className="h-5 w-5 text-cyan-400" />
-                  Configure Your Digital Signature
-                </h3>
-                {adminSignature ? (
-                  <div className="space-y-4">
-                    <div className="p-4 border border-cyan-500/20 bg-slate-950/60 rounded-xl inline-block">
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-semibold">Active Signature Image:</p>
-                      <img src={adminSignature} alt="Digital Signature" className="max-h-[100px] bg-white rounded p-2" />
-                    </div>
-                    <p className="text-sm text-slate-400">
-                      Signature is configured! Want to update it? Draw below and save to overwrite.
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                      <Award className="h-6 w-6 text-cyan-400" />
+                      Certificate Design & Certification Authority
+                    </h2>
+                    <p className="mt-1 text-slate-400 text-sm">
+                      Design official credential templates, configure digital signatures, audit verified certificates, and manage approvals.
                     </p>
                   </div>
-                ) : (
-                  <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-yellow-300/80 text-sm mb-4">
-                    No active digital signature found. You must configure and save your signature before approving any certificates.
+
+                  {/* Sub-tab pills */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setCertAdminSubTab('designer')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        certAdminSubTab === 'designer'
+                          ? 'bg-cyan-500 text-slate-950 shadow-md'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <PenTool className="h-3.5 w-3.5" />
+                      Template Designer
+                    </button>
+
+                    <button
+                      onClick={() => setCertAdminSubTab('all')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        certAdminSubTab === 'all'
+                          ? 'bg-cyan-500 text-slate-950 shadow-md'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Issued Certificates ({allCertificates.length})
+                    </button>
+
+                    <button
+                      onClick={() => setCertAdminSubTab('pending')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        certAdminSubTab === 'pending'
+                          ? 'bg-cyan-500 text-slate-950 shadow-md'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <FileClock className="h-3.5 w-3.5" />
+                      Pending Approvals ({pendingCertificates.length})
+                    </button>
                   </div>
-                )}
-                
-                <div className="mt-6 border-t border-slate-800 pt-6">
-                  <SignaturePad
-                    initialSignature={adminSignature}
-                    onSave={async (signatureData) => {
-                      try {
-                        await apiRequest('/certificates/admin/signature', {
-                          method: 'POST',
-                          body: JSON.stringify({ signatureBase64: signatureData }),
-                        });
-                        setAdminSignature(signatureData);
-                        alert('Digital signature saved successfully!');
-                      } catch (err: any) {
-                        alert(err.message || 'Failed to save digital signature');
-                      }
-                    }}
-                  />
                 </div>
               </div>
 
-              {/* Certificates Queue */}
-              <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <FileClock className="h-5 w-5 text-cyan-400" />
-                  Pending Approvals ({pendingCertificates.length})
-                </h3>
+              {/* ========================================================= */}
+              {/* SUB-TAB 1: TEMPLATE DESIGNER & LIVE PREVIEW               */}
+              {/* ========================================================= */}
+              {certAdminSubTab === 'designer' && (
+                <div className="space-y-6">
+                  {/* Template Picker Cards */}
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {certTemplates.map((tpl) => {
+                      const isSelected = selectedTemplate?.templateId === tpl.templateId;
+                      return (
+                        <div
+                          key={tpl._id || tpl.templateId}
+                          onClick={() => setSelectedTemplate({ ...tpl })}
+                          className={`cursor-pointer rounded-2xl border p-4 transition-all ${
+                            isSelected
+                              ? 'bg-cyan-500/10 border-cyan-500 ring-2 ring-cyan-500/40'
+                              : 'bg-slate-900/60 border-white/5 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-mono text-cyan-400 font-bold uppercase">{tpl.templateId}</span>
+                            {tpl.isActive && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                                ACTIVE DEFAULT
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-white text-sm">{tpl.name}</h4>
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{tpl.description}</p>
+                          <div className="mt-3 flex items-center gap-1.5">
+                            <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: tpl.primaryColor }} />
+                            <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: tpl.secondaryColor }} />
+                            <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: tpl.accentColor }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                {certificatesLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+                  {selectedTemplate && (
+                    <div className="grid gap-6 lg:grid-cols-12">
+                      {/* Left 6 Cols: Customization Controls */}
+                      <div className="lg:col-span-6 rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                          <h3 className="font-bold text-white text-base flex items-center gap-2">
+                            <Edit3 className="h-4 w-4 text-cyan-400" />
+                            Template Configuration: {selectedTemplate.name}
+                          </h3>
+                          {selectedTemplate.isActive ? (
+                            <span className="text-xs font-semibold text-emerald-400">Default for Students</span>
+                          ) : (
+                            <button
+                              onClick={() => handleActivateTemplate(selectedTemplate._id)}
+                              className="text-xs px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 font-bold border border-emerald-500/30 transition"
+                            >
+                              Set as Default Template
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-3.5 text-xs">
+                          <div>
+                            <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Template Name</label>
+                            <input
+                              type="text"
+                              value={selectedTemplate.name || ''}
+                              onChange={(e) => setSelectedTemplate({ ...selectedTemplate, name: e.target.value })}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/10 text-white text-xs focus:border-cyan-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Organization / Issuing Authority</label>
+                            <input
+                              type="text"
+                              value={selectedTemplate.orgName || ''}
+                              onChange={(e) => setSelectedTemplate({ ...selectedTemplate, orgName: e.target.value })}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/10 text-white text-xs focus:border-cyan-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Signatory Name</label>
+                              <input
+                                type="text"
+                                value={selectedTemplate.signatoryName || ''}
+                                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, signatoryName: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/10 text-white text-xs focus:border-cyan-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Signatory Title</label>
+                              <input
+                                type="text"
+                                value={selectedTemplate.signatoryTitle || ''}
+                                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, signatoryTitle: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/10 text-white text-xs focus:border-cyan-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Primary Color</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={selectedTemplate.primaryColor || '#0f172a'}
+                                  onChange={(e) => setSelectedTemplate({ ...selectedTemplate, primaryColor: e.target.value })}
+                                  className="h-8 w-8 rounded cursor-pointer bg-transparent border-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={selectedTemplate.primaryColor || '#0f172a'}
+                                  onChange={(e) => setSelectedTemplate({ ...selectedTemplate, primaryColor: e.target.value })}
+                                  className="w-full px-2 py-1 rounded bg-slate-950 border border-white/10 text-white text-xs font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Secondary Color</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={selectedTemplate.secondaryColor || '#06b6d4'}
+                                  onChange={(e) => setSelectedTemplate({ ...selectedTemplate, secondaryColor: e.target.value })}
+                                  className="h-8 w-8 rounded cursor-pointer bg-transparent border-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={selectedTemplate.secondaryColor || '#06b6d4'}
+                                  onChange={(e) => setSelectedTemplate({ ...selectedTemplate, secondaryColor: e.target.value })}
+                                  className="w-full px-2 py-1 rounded bg-slate-950 border border-white/10 text-white text-xs font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Accent Color</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={selectedTemplate.accentColor || '#38bdf8'}
+                                  onChange={(e) => setSelectedTemplate({ ...selectedTemplate, accentColor: e.target.value })}
+                                  className="h-8 w-8 rounded cursor-pointer bg-transparent border-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={selectedTemplate.accentColor || '#38bdf8'}
+                                  onChange={(e) => setSelectedTemplate({ ...selectedTemplate, accentColor: e.target.value })}
+                                  className="w-full px-2 py-1 rounded bg-slate-950 border border-white/10 text-white text-xs font-mono"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Numbering Format</label>
+                              <input
+                                type="text"
+                                value={selectedTemplate.numberingFormat || 'SDNA-CERT-YYYY-XXXXXX'}
+                                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, numberingFormat: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/10 text-white text-xs font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Watermark Text</label>
+                              <input
+                                type="text"
+                                value={selectedTemplate.watermarkText || 'SKILLDNA VERIFIED'}
+                                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, watermarkText: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/10 text-white text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3 pt-3">
+                            <button
+                              onClick={handleSaveTemplate}
+                              disabled={savingTemplate}
+                              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold hover:from-cyan-400 hover:to-blue-500 transition flex items-center justify-center gap-2 disabled:opacity-50 text-xs"
+                            >
+                              {savingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              Save Template Customization
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right 6 Cols: Live Visual Certificate Preview */}
+                      <div className="lg:col-span-6 rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Live Rendered Certificate Preview</span>
+                            <span className="text-[10px] font-mono text-cyan-400">Ratio: Standard Landscape (16:10)</span>
+                          </div>
+
+                          {/* Certificate Live Mock Canvas */}
+                          <div
+                            className="w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden transition-all border-4"
+                            style={{
+                              backgroundColor: selectedTemplate.primaryColor || '#0f172a',
+                              borderColor: selectedTemplate.secondaryColor || '#06b6d4',
+                              color: '#f8fafc',
+                            }}
+                          >
+                            {/* Watermark overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none select-none text-4xl font-extrabold uppercase rotate-[-20deg]">
+                              {selectedTemplate.watermarkText || 'SKILLDNA VERIFIED'}
+                            </div>
+
+                            <div className="relative z-10 space-y-4">
+                              {/* Certificate Header */}
+                              <div className="text-center space-y-1 border-b border-white/10 pb-3">
+                                <div className="text-[10px] font-bold tracking-widest uppercase" style={{ color: selectedTemplate.secondaryColor || '#06b6d4' }}>
+                                  {selectedTemplate.orgName || 'SkillDNA AI Global Certification Authority'}
+                                </div>
+                                <h3 className="text-base font-extrabold tracking-wide text-white uppercase">
+                                  {selectedTemplate.headerText || 'Certificate of Verified Mastery'}
+                                </h3>
+                                <p className="text-[9px] text-slate-400">Issued under autonomous AI verification standards</p>
+                              </div>
+
+                              {/* Candidate & Path Mock */}
+                              <div className="text-center py-2 space-y-1">
+                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">This credential is presented to</span>
+                                <div className="text-xl font-serif font-bold text-white tracking-wide">
+                                  Alex R. Candidate
+                                </div>
+                                <p className="text-xs text-slate-300">
+                                  for demonstrating certified professional competency in
+                                </p>
+                                <div className="text-xs font-bold tracking-wider uppercase" style={{ color: selectedTemplate.accentColor || '#38bdf8' }}>
+                                  Advanced Mechanical Design & GD&T Systems
+                                </div>
+                              </div>
+
+                              {/* Scores & Badge Mock */}
+                              <div className="p-2.5 rounded-lg bg-black/30 border border-white/10 flex items-center justify-between text-xs">
+                                <div>
+                                  <div className="text-[9px] text-slate-400 uppercase">Composite Score</div>
+                                  <div className="font-mono font-extrabold text-sm text-emerald-400">88% (HONORS PASS)</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-[9px] text-slate-400 uppercase">Verification ID</div>
+                                  <div className="font-mono text-[10px] text-cyan-300">SDNA-CERT-2026-88A9F1</div>
+                                </div>
+                              </div>
+
+                              {/* Signatures & Seal Mock */}
+                              <div className="pt-2 flex items-center justify-between border-t border-white/10 text-[10px]">
+                                <div>
+                                  <div className="font-bold text-white">{selectedTemplate.signatoryName || 'Dr. Evelyn Carter'}</div>
+                                  <div className="text-[9px] text-slate-400">{selectedTemplate.signatoryTitle || 'Head of AI Evaluation'}</div>
+                                </div>
+
+                                {adminSignature ? (
+                                  <img src={adminSignature} alt="Signature" className="max-h-8 max-w-[90px] object-contain" />
+                                ) : (
+                                  <div className="font-serif italic text-cyan-400 text-sm">Official Seal</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-400 mt-4">
+                          All generated certificates are automatically watermarked with unique cryptographic IDs formatted according to <code className="text-cyan-300">{selectedTemplate.numberingFormat || 'SDNA-CERT-YYYY-XXXXXX'}</code>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Digital Signature Panel */}
+                  <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <PenTool className="h-5 w-5 text-cyan-400" />
+                      Configure Your Official Digital Signature
+                    </h3>
+                    {adminSignature ? (
+                      <div className="space-y-3">
+                        <div className="p-4 border border-cyan-500/20 bg-slate-950/60 rounded-xl inline-block">
+                          <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-semibold">Active Signature Stamp:</p>
+                          <img src={adminSignature} alt="Digital Signature" className="max-h-[80px] bg-white rounded p-2" />
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Signature configured. Draw below if you wish to overwrite your active digital signature.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-yellow-300/80 text-xs mb-4">
+                        No active digital signature found. Draw and save your signature below to attach it to newly approved certificates.
+                      </div>
+                    )}
+                    
+                    <div className="mt-4 border-t border-slate-800 pt-4">
+                      <SignaturePad
+                        initialSignature={adminSignature}
+                        onSave={async (signatureData) => {
+                          try {
+                            await apiRequest('/certificates/admin/signature', {
+                              method: 'POST',
+                              body: JSON.stringify({ signatureBase64: signatureData }),
+                            });
+                            setAdminSignature(signatureData);
+                            alert('Digital signature saved successfully!');
+                          } catch (err: any) {
+                            alert(err.message || 'Failed to save digital signature');
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
-                ) : pendingCertificates.length === 0 ? (
-                  <div className="text-center py-12 border border-white/5 rounded-2xl bg-slate-950/20">
-                    <Award className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400">No pending certificate approval requests found.</p>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* SUB-TAB 2: ISSUED CERTIFICATES AUDIT & LEDGER             */}
+              {/* ========================================================= */}
+              {certAdminSubTab === 'all' && (
+                <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Award className="h-5 w-5 text-cyan-400" />
+                        All Issued Certificates Ledger ({allCertificates.length})
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Only candidates with verified scores &ge; 75% are authorized and recorded in this ledger.
+                      </p>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="Search student, email, certificate ID..."
+                      value={allCertSearch}
+                      onChange={(e) => setAllCertSearch(e.target.value)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-950 border border-white/10 text-white text-xs placeholder-slate-500 focus:border-cyan-500 w-full sm:w-72"
+                    />
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-300">
-                      <thead className="bg-slate-950/40 text-slate-400 uppercase text-xs font-mono">
-                        <tr>
-                          <th className="px-6 py-4">Student</th>
-                          <th className="px-6 py-4">Career Path</th>
-                          <th className="px-6 py-4">Overall Score</th>
-                          <th className="px-6 py-4">Requested Date</th>
-                          <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800">
-                        {pendingCertificates.map((cert) => (
-                          <tr key={cert._id} className="hover:bg-slate-800/40 transition-colors">
-                            <td className="px-6 py-4 font-semibold text-white">
-                              <div>{cert.studentName}</div>
-                              <div className="text-xs text-slate-500 font-normal">{cert.email}</div>
-                            </td>
-                            <td className="px-6 py-4">{cert.careerPath}</td>
-                            <td className="px-6 py-4 text-cyan-400 font-bold">{cert.overallScore} / 100</td>
-                            <td className="px-6 py-4 text-slate-400">
-                              {new Date(cert.createdAt || cert.issueDate).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 text-right space-x-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedCertificate(cert);
-                                  setAuditingCertificate({
-                                    careerPath: cert.careerPath,
-                                    technicalScore: cert.technicalScore,
-                                    communicationScore: cert.communicationScore,
-                                    problemSolvingScore: cert.problemSolvingScore,
-                                    confidenceScore: cert.confidenceScore,
-                                    strengths: cert.strengths?.join(', ') || '',
-                                    improvements: cert.improvements?.join(', ') || '',
-                                  });
-                                  setShowApproveModal(true);
-                                }}
-                                className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold text-xs transition-all animate-pulse"
-                              >
-                                Audit & Sign
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!window.confirm(`Are you sure you want to reject ${cert.studentName}'s certificate request?`)) return;
-                                  try {
-                                    await apiRequest(`/certificates/admin/reject/${cert.certificateId}`, { method: 'POST' });
-                                    alert('Certificate rejected.');
-                                    fetchPendingCertificates();
-                                  } catch (err: any) {
-                                    alert(err.message || 'Failed to reject certificate');
-                                  }
-                                }}
-                                className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-bold text-xs transition-all"
-                              >
-                                Reject
-                              </button>
-                            </td>
+
+                  {allCertsLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+                    </div>
+                  ) : allCertificates.length === 0 ? (
+                    <div className="text-center py-16 border border-white/5 rounded-2xl bg-slate-950/20">
+                      <Award className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                      <p className="text-slate-400 text-xs">No issued certificates found.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-300">
+                        <thead className="bg-slate-950/40 text-slate-400 uppercase font-mono">
+                          <tr>
+                            <th className="px-4 py-3">Certificate ID</th>
+                            <th className="px-4 py-3">Student Name</th>
+                            <th className="px-4 py-3">Career Path</th>
+                            <th className="px-4 py-3">Verified Score</th>
+                            <th className="px-4 py-3">Template</th>
+                            <th className="px-4 py-3">Issue Date</th>
+                            <th className="px-4 py-3 text-right">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {allCertificates
+                            .filter((c) => {
+                              if (!allCertSearch.trim()) return true;
+                              const q = allCertSearch.toLowerCase();
+                              return (
+                                c.certificateId?.toLowerCase().includes(q) ||
+                                c.studentName?.toLowerCase().includes(q) ||
+                                c.email?.toLowerCase().includes(q) ||
+                                c.careerPath?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((cert) => (
+                              <tr key={cert._id} className="hover:bg-slate-800/40 transition-colors">
+                                <td className="px-4 py-3 font-mono text-cyan-300 font-semibold">{cert.certificateId}</td>
+                                <td className="px-4 py-3">
+                                  <div className="font-semibold text-white">{cert.studentName}</div>
+                                  <div className="text-[10px] text-slate-500">{cert.email}</div>
+                                </td>
+                                <td className="px-4 py-3">{cert.careerPath}</td>
+                                <td className="px-4 py-3">
+                                  <span className="px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    {cert.overallScore}% PASS
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 font-mono uppercase text-[10px] text-slate-400">{cert.templateId || 'Template 01'}</td>
+                                <td className="px-4 py-3 text-slate-400">{new Date(cert.issueDate || cert.createdAt).toLocaleDateString()}</td>
+                                <td className="px-4 py-3 text-right space-x-2">
+                                  <a
+                                    href={`/api/certificates/verify/${cert.certificateId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition"
+                                  >
+                                    Verify
+                                  </a>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await apiRequest(`/certificates/admin/regenerate/${cert.certificateId}`, { method: 'POST' });
+                                        alert('Certificate regenerated with latest template configuration!');
+                                        fetchAllCertificates();
+                                      } catch (e: any) {
+                                        alert('Failed: ' + e.message);
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[11px] font-semibold border border-cyan-500/30 transition"
+                                  >
+                                    Regenerate
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* SUB-TAB 3: PENDING APPROVALS QUEUE                        */}
+              {/* ========================================================= */}
+              {certAdminSubTab === 'pending' && (
+                <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <FileClock className="h-5 w-5 text-cyan-400" />
+                    Pending Approvals ({pendingCertificates.length})
+                  </h3>
+
+                  {certificatesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+                    </div>
+                  ) : pendingCertificates.length === 0 ? (
+                    <div className="text-center py-12 border border-white/5 rounded-2xl bg-slate-950/20">
+                      <Award className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                      <p className="text-slate-400 text-xs">No pending certificate approval requests found.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm text-slate-300">
+                        <thead className="bg-slate-950/40 text-slate-400 uppercase text-xs font-mono">
+                          <tr>
+                            <th className="px-6 py-4">Student</th>
+                            <th className="px-6 py-4">Career Path</th>
+                            <th className="px-6 py-4">Overall Score</th>
+                            <th className="px-6 py-4">Requested Date</th>
+                            <th className="px-6 py-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {pendingCertificates.map((cert) => (
+                            <tr key={cert._id} className="hover:bg-slate-800/40 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-white">
+                                <div>{cert.studentName}</div>
+                                <div className="text-xs text-slate-500 font-normal">{cert.email}</div>
+                              </td>
+                              <td className="px-6 py-4">{cert.careerPath}</td>
+                              <td className="px-6 py-4 text-cyan-400 font-bold">{cert.overallScore} / 100</td>
+                              <td className="px-6 py-4 text-slate-400">
+                                {new Date(cert.createdAt || cert.issueDate).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedCertificate(cert);
+                                    setAuditingCertificate({
+                                      careerPath: cert.careerPath,
+                                      technicalScore: cert.technicalScore,
+                                      communicationScore: cert.communicationScore,
+                                      problemSolvingScore: cert.problemSolvingScore,
+                                      confidenceScore: cert.confidenceScore,
+                                      strengths: cert.strengths?.join(', ') || '',
+                                      improvements: cert.improvements?.join(', ') || '',
+                                    });
+                                    setShowApproveModal(true);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold text-xs transition-all animate-pulse"
+                                >
+                                  Audit & Sign
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm(`Are you sure you want to reject ${cert.studentName}'s certificate request?`)) return;
+                                    try {
+                                      await apiRequest(`/certificates/admin/reject/${cert.certificateId}`, { method: 'POST' });
+                                      alert('Certificate rejected.');
+                                      fetchPendingCertificates();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Failed to reject certificate');
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-bold text-xs transition-all"
+                                >
+                                  Reject
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 
