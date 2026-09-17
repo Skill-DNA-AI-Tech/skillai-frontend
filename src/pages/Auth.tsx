@@ -59,23 +59,27 @@ const Auth = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!response.token) {
-        throw new Error(response.message || 'Authentication failed.');
+      const token = response.token || response.access_token;
+      const refreshToken = response.refreshToken || response.refresh_token;
+
+      if (!token) {
+        throw new Error(response.message || response.detail || 'Authentication failed.');
       }
 
+      const userObj = response.user || response;
       login(
         { 
-          _id: response._id, 
-          name: response.name, 
-          email: response.email, 
-          role: response.role, 
-          status: response.status, 
-          avatarUrl: response.avatarUrl 
+          _id: userObj._id || userObj.id || 'social-user', 
+          name: userObj.name || socialUser.name, 
+          email: userObj.email || socialUser.email, 
+          role: userObj.role || role, 
+          status: userObj.status || 'ACTIVE', 
+          avatarUrl: userObj.avatarUrl || socialUser.avatarUrl 
         }, 
-        response.token, 
-        response.refreshToken
+        token, 
+        refreshToken
       );
-      navigateToRole(response.role);
+      navigateToRole(userObj.role || role);
     } catch (err: any) {
       setError(err?.message || 'Unable to authenticate with social provider.');
     } finally {
@@ -121,8 +125,8 @@ const Auth = () => {
         });
 
         if (backendRes.requiresPasswordChange) {
-          setTempToken(backendRes.token);
-          setTempRefreshToken(backendRes.refreshToken ?? null);
+          setTempToken(backendRes.token || backendRes.access_token);
+          setTempRefreshToken(backendRes.refreshToken ?? backendRes.refresh_token ?? null);
           setMode('change_temp_password');
           setNewPassword('');
           setMessage('Temporary password detected. Please choose a new secure password.');
@@ -130,6 +134,9 @@ const Auth = () => {
         }
 
         const userObj = backendRes.user || backendRes;
+        const token = backendRes.token || backendRes.access_token;
+        const refreshToken = backendRes.refreshToken || backendRes.refresh_token;
+
         login(
           {
             _id: userObj.id || userObj._id || 'user-id',
@@ -139,8 +146,8 @@ const Auth = () => {
             status: userObj.status || 'ACTIVE',
             avatarUrl: userObj.avatarUrl,
           },
-          backendRes.token,
-          backendRes.refreshToken
+          token,
+          refreshToken
         );
         navigateToRole(userObj.role || 'student');
         return;
@@ -150,26 +157,30 @@ const Auth = () => {
           body: JSON.stringify({ name, email, password, role }),
         });
 
-        if (!response.token) {
-          setMessage(response.message || 'Account request received. Please wait for approval before signing in.');
+        const token = response.token || response.access_token;
+        const refreshToken = response.refreshToken || response.refresh_token;
+
+        if (!token) {
+          setMessage(response.message || response.detail || 'Registration successful. Please sign in.');
           setMode('login');
           setPassword('');
           return;
         }
 
+        const userObj = response.user || response;
         login(
           {
-            _id: response._id,
-            name: response.name,
-            email: response.email,
-            role: response.role,
-            status: response.status,
-            avatarUrl: response.avatarUrl,
+            _id: userObj.id || userObj._id || 'user-id',
+            name: userObj.name || name,
+            email: userObj.email || email,
+            role: userObj.role || role,
+            status: userObj.status || 'ACTIVE',
+            avatarUrl: userObj.avatarUrl,
           },
-          response.token,
-          response.refreshToken
+          token,
+          refreshToken
         );
-        navigateToRole(response.role);
+        navigateToRole(userObj.role || role);
       } else if (mode === 'forgot') {
         const res = await apiRequest<any>('/auth/forgot-password', {
           method: 'POST',

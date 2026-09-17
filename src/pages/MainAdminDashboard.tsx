@@ -453,8 +453,8 @@ const MainAdminDashboard = () => {
   const fetchAllCertificates = async () => {
     try {
       setAllCertsLoading(true);
-      const res = await apiRequest<any[]>('/certificates/admin/all');
-      setAllCertificates(res || []);
+      const res = await apiRequest<any>('/certificates/admin/all');
+      setAllCertificates(Array.isArray(res) ? res : res?.certificates || []);
     } catch (err) {
       console.error('Failed to fetch all certificates:', err);
     } finally {
