@@ -1,4 +1,4 @@
-import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock, MessageSquareText, Star, Video, BrainCircuit, ExternalLink, Activity, Layers, ArrowRight, Building2, LineChart, Download, Search, Filter, FileSpreadsheet, Plus, RefreshCw, Check, X, ChevronLeft, ChevronRight, BookOpen, AlertCircle, FileText } from 'lucide-react';
+import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock, MessageSquareText, Star, Video, BrainCircuit, ExternalLink, Activity, Layers, ArrowRight, Building2, LineChart, Download, Search, Filter, FileSpreadsheet, Plus, RefreshCw, Check, X, ChevronLeft, ChevronRight, BookOpen, AlertCircle, FileText, GitPullRequest } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
@@ -9,6 +9,8 @@ import { adminAnalytics, contentTypes } from '../data/platform';
 import { apiRequest, getApiBaseUrl, readStoredToken } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { TestUserManager } from '../components/TestUserManager';
+import { CareerChangeManagement } from '../components/admin/CareerChangeManagement';
+import { TopicNotesManagement } from '../components/admin/TopicNotesManagement';
 
 const adminChart = [
   { label: 'Medical', users: 3200 },
@@ -197,7 +199,7 @@ const MainAdminDashboard = () => {
   const { user } = useAuth();
   const isMainAdmin = user?.email === 'skilldnaai@ai.com';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'questions' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'test-users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'questions' | 'career-changes' | 'topic-notes' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'test-users'>('overview');
   const [footerData, setFooterData] = useState<FooterData>(defaultFooterData);
 
   // Question Bank State
@@ -844,6 +846,20 @@ const MainAdminDashboard = () => {
               <span>Question Bank & AI</span>
             </button>
             <button
+              onClick={() => setActiveTab('career-changes')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'career-changes' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <GitPullRequest className="h-4 w-4 text-cyan-400" />
+              <span>Career Change Requests</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('topic-notes')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'topic-notes' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <BookOpen className="h-4 w-4 text-cyan-400" />
+              <span>Topic Notes & Curriculum</span>
+            </button>
+            <button
               onClick={() => setActiveTab('test-users')}
               className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'test-users' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
             >
@@ -1316,6 +1332,26 @@ const MainAdminDashboard = () => {
       </motion.section>
 
             </>
+          )}
+
+          {activeTab === 'career-changes' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <CareerChangeManagement />
+            </motion.div>
+          )}
+
+          {activeTab === 'topic-notes' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <TopicNotesManagement />
+            </motion.div>
           )}
 
           {activeTab === 'questions' && (

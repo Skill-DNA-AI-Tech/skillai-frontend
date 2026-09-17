@@ -54,8 +54,8 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/auth" replace />;
   }
   
-  // Super Admin & Admin have unrestricted access to all platform features and views
-  if (role === 'MAIN_ADMIN' || role === 'ADMIN') {
+  // Super Admin, Admin & Support Team have administrative access to platform management
+  if (role === 'MAIN_ADMIN' || role === 'ADMIN' || role === 'SUPPORT_TEAM') {
     return <>{children}</>;
   }
 

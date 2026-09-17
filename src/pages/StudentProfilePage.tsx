@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Mail, Phone, Briefcase, GraduationCap, MapPin, Download, Share2, Copy, Eye, CheckCircle, AlertCircle, Loader, Plus, Pencil, X } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { 
+  Award, Mail, Phone, Briefcase, GraduationCap, MapPin, Download, 
+  Share2, Copy, Eye, CheckCircle, AlertCircle, Loader, Plus, Pencil, 
+  X, Lock, GitPullRequest, Clock, CheckCircle2, XCircle, AlertTriangle, ChevronRight, BookOpen
+} from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { motion } from 'framer-motion';
+
+export const AVAILABLE_CAREERS = [
+  { id: 'Java Software Engineer', domain: 'Computer Science', description: 'Enterprise Java, OOP, Spring Boot, Microservices, and Cloud Backend Architecture.' },
+  { id: 'Full Stack Web Developer', domain: 'Computer Science', description: 'Modern React, Node.js, Express, MongoDB, TypeScript, and System Design.' },
+  { id: 'Frontend Developer', domain: 'Computer Science', description: 'Advanced React, TypeScript, Tailwind CSS, State Management, and Web Performance.' },
+  { id: 'Backend Developer', domain: 'Computer Science', description: 'REST APIs, Microservices, PostgreSQL, Redis Caching, and Scalable Backend Architecture.' },
+  { id: 'Data Scientist', domain: 'Computer Science', description: 'Python, Pandas, NumPy, Statistical Modeling, Machine Learning, and Data Pipelines.' },
+  { id: 'AI / ML Engineer', domain: 'Computer Science', description: 'PyTorch, Deep Learning, NLP, Transformer Models, LLMs, and Model Deployment.' },
+  { id: 'DevOps Engineer', domain: 'Computer Science', description: 'Docker, Kubernetes, CI/CD Pipelines, AWS Cloud Infrastructure, and Terraform.' },
+  { id: 'Mobile App Developer', domain: 'Computer Science', description: 'React Native, Flutter, Mobile UI/UX, Native APIs, and App Store Deployment.' },
+  { id: 'Cloud Engineer', domain: 'Computer Science', description: 'Cloud Architecture, AWS/GCP, Serverless Computing, IAM, and Networking Security.' },
+];
 
 interface UserProfile {
   _id: string;
@@ -21,6 +37,15 @@ interface UserProfile {
   interests?: string[];
   preferredRoles?: string[];
   semester?: string;
+  career?: string;
+  isProfileCompleted?: boolean;
+  experienceLevel?: string;
+  activeCurriculum?: {
+    career: string;
+    domain: string;
+    description: string;
+    topics: Array<{ name: string; subtopics: string[] }>;
+  };
   user?: {
     _id: string;
     name: string;
@@ -29,6 +54,17 @@ interface UserProfile {
     mobile?: string;
     avatarUrl?: string;
   };
+}
+
+interface CareerChangeRequest {
+  _id: string;
+  currentCareer: string;
+  requestedCareer: string;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewNotes?: string;
+  createdAt: string;
+  reviewedAt?: string;
 }
 
 interface Certificate {
@@ -54,6 +90,7 @@ const StudentProfilePage: React.FC = () => {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [careerRequests, setCareerRequests] = useState<CareerChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareEmail, setShareEmail] = useState('');
@@ -62,8 +99,16 @@ const StudentProfilePage: React.FC = () => {
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCareerChangeModal, setShowCareerChangeModal] = useState(false);
+  const [submittingCareerChange, setSubmittingCareerChange] = useState(false);
+  const [careerChangeForm, setCareerChangeForm] = useState({
+    requestedCareer: AVAILABLE_CAREERS[0].id,
+    reason: '',
+  });
+
   const [actualSessions, setActualSessions] = useState(0);
   const [formData, setFormData] = useState({
     careerPath: '',
@@ -76,6 +121,7 @@ const StudentProfilePage: React.FC = () => {
     improvements: '',
   });
 
+  // Edit / Setup Form
   const [editFormData, setEditFormData] = useState({
     name: '',
     mobile: '',
@@ -84,71 +130,78 @@ const StudentProfilePage: React.FC = () => {
     college: '',
     degree: '',
     branch: '',
-    semester: '',
+    semester: '1st_year',
+    experienceLevel: 'Fresher',
+    career: AVAILABLE_CAREERS[0].id,
     skills: '',
     interests: '',
     preferredRoles: '',
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        if (isOwnProfile) {
-          // Fetch own profile
-          try {
-            const profileRes = await api.get('/api/profiles/me');
-            setProfile(profileRes.data);
-          } catch (profileErr: any) {
-            if (profileErr.response?.status === 404) {
-              setProfile(null);
-            } else {
-              throw profileErr;
-            }
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      if (isOwnProfile) {
+        try {
+          const profileRes = await api.get('/api/profiles/me');
+          setProfile(profileRes.data);
+        } catch (profileErr: any) {
+          if (profileErr.response?.status === 404) {
+            setProfile(null);
+          } else {
+            throw profileErr;
           }
-
-          // Fetch own certificates
-          const certRes = await api.get('/api/certificates/my-certificates');
-          setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
-
-          // Fetch own interview sessions count
-          let sessionsCount = 0;
-          try {
-            const sessionsRes = await api.get('/api/interviews/sessions/me');
-            if (sessionsRes.data && Array.isArray(sessionsRes.data)) {
-              sessionsCount = sessionsRes.data.filter((s: any) => s.status === 'Completed' || s.status === 'completed').length;
-            }
-          } catch (e) {
-            console.warn('Failed to fetch interview session count:', e);
-          }
-          setActualSessions(sessionsCount);
-        } else {
-          // Fetch target student profile
-          try {
-            const profileRes = await api.get(`/api/profiles/user/${id}`);
-            setProfile(profileRes.data);
-          } catch (profileErr: any) {
-            if (profileErr.response?.status === 404) {
-              setProfile(null);
-            } else {
-              throw profileErr;
-            }
-          }
-
-          // Fetch target student certificates
-          const certRes = await api.get(`/api/certificates/student/${id}`);
-          setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
         }
-        setError(null);
-      } catch (err: any) {
-        setError(err.response?.data?.error || err.message || 'Failed to load profile');
-        console.error('Profile load error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchData();
+        // Fetch certificates
+        const certRes = await api.get('/api/certificates/my-certificates');
+        setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
+
+        // Fetch career change requests history
+        try {
+          const changeRes = await api.get('/api/career-change-requests/my');
+          setCareerRequests(Array.isArray(changeRes.data) ? changeRes.data : []);
+        } catch (cErr) {
+          console.warn('Could not fetch career change history:', cErr);
+        }
+
+        // Fetch interview sessions count
+        let sessionsCount = 0;
+        try {
+          const sessionsRes = await api.get('/api/interviews/sessions/me');
+          if (sessionsRes.data && Array.isArray(sessionsRes.data)) {
+            sessionsCount = sessionsRes.data.filter((s: any) => s.status === 'Completed' || s.status === 'completed').length;
+          }
+        } catch (e) {
+          console.warn('Failed to fetch interview session count:', e);
+        }
+        setActualSessions(sessionsCount);
+      } else {
+        try {
+          const profileRes = await api.get(`/api/profiles/user/${id}`);
+          setProfile(profileRes.data);
+        } catch (profileErr: any) {
+          if (profileErr.response?.status === 404) {
+            setProfile(null);
+          } else {
+            throw profileErr;
+          }
+        }
+
+        const certRes = await api.get(`/api/certificates/student/${id}`);
+        setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
+      }
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Failed to load profile');
+      console.error('Profile load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
   }, [id, isOwnProfile]);
 
   const handleShareCertificate = async (e: React.FormEvent) => {
@@ -161,7 +214,6 @@ const StudentProfilePage: React.FC = () => {
         recruiterEmail: shareEmail,
       });
 
-      // Refresh certificates
       const certRes = await api.get('/api/certificates/my-certificates');
       setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
 
@@ -204,13 +256,13 @@ const StudentProfilePage: React.FC = () => {
 
     const skillDNA = (profile as any)?.skillDNA || {};
     setFormData({
-      careerPath: (profile as any)?.preferredRoles?.[0] || (profile as any)?.branch || 'Software Engineering',
-      technicalScore: skillDNA.technicalScore || 70,
+      careerPath: profile?.career || (profile as any)?.preferredRoles?.[0] || (profile as any)?.branch || 'Software Engineering',
+      technicalScore: skillDNA.technicalScore || 75,
       communicationScore: skillDNA.communicationScore || 75,
-      problemSolvingScore: skillDNA.projectsScore || skillDNA.aptitudeScore || 72,
-      confidenceScore: skillDNA.confidenceScore || 68,
+      problemSolvingScore: skillDNA.projectsScore || skillDNA.aptitudeScore || 75,
+      confidenceScore: skillDNA.confidenceScore || 75,
       sessionsCompleted: actualSessions,
-      strengths: skillDNA.strengths?.join(', ') || 'Problem Solving, System Design',
+      strengths: skillDNA.strengths?.join(', ') || 'Problem Solving, Architecture',
       improvements: skillDNA.weaknesses?.join(', ') || 'Communication Depth',
     });
     setShowCreateModal(true);
@@ -256,7 +308,9 @@ const StudentProfilePage: React.FC = () => {
       college: profile?.college || '',
       degree: profile?.degree || '',
       branch: profile?.branch || '',
-      semester: profile?.semester || '',
+      semester: profile?.semester || '1st_year',
+      experienceLevel: profile?.experienceLevel || 'Fresher',
+      career: profile?.career || AVAILABLE_CAREERS[0].id,
       skills: profile?.skills?.join(', ') || '',
       interests: profile?.interests?.join(', ') || '',
       preferredRoles: profile?.preferredRoles?.join(', ') || '',
@@ -264,26 +318,76 @@ const StudentProfilePage: React.FC = () => {
     setShowEditModal(true);
   };
 
+  // Submit Profile (First-time setup via POST or updates via PUT)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
+      const isFirstSetup = !profile || !profile.isProfileCompleted;
+
       const payload = {
-        ...editFormData,
+        name: editFormData.name,
+        mobile: editFormData.mobile,
+        location: editFormData.location,
+        bio: editFormData.bio,
+        college: editFormData.college,
+        degree: editFormData.degree,
+        branch: editFormData.branch,
+        semester: editFormData.semester,
+        experienceLevel: editFormData.experienceLevel,
         skills: editFormData.skills ? editFormData.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
         interests: editFormData.interests ? editFormData.interests.split(',').map((i) => i.trim()).filter(Boolean) : [],
         preferredRoles: editFormData.preferredRoles ? editFormData.preferredRoles.split(',').map((r) => r.trim()).filter(Boolean) : [],
+        ...(isFirstSetup ? { career: editFormData.career, isProfileCompleted: true } : {}),
       };
 
-      const res = await api.put('/api/profiles/me', payload);
-      setProfile(res.data);
+      if (isFirstSetup) {
+        const res = await api.post('/api/profiles', payload);
+        setProfile(res.data);
+      } else {
+        const res = await api.put('/api/profiles/me', payload);
+        setProfile(res.data);
+      }
+
       setShowEditModal(false);
       setError(null);
-      alert('Profile updated successfully!');
+      await fetchProfileData();
+      alert(isFirstSetup ? 'Profile setup complete! Active curriculum assigned.' : 'Profile updated successfully!');
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to update profile');
+      alert(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to save profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Submit Career Change Request
+  const handleSubmitCareerChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!careerChangeForm.reason.trim() || careerChangeForm.reason.trim().length < 10) {
+      alert('Please provide a meaningful reason (at least 10 characters) explaining why you wish to change your career.');
+      return;
+    }
+
+    if (careerChangeForm.requestedCareer === profile?.career) {
+      alert('You have selected your currently active career. Please choose a different target career.');
+      return;
+    }
+
+    setSubmittingCareerChange(true);
+    try {
+      await api.post('/api/career-change-requests', {
+        requestedCareer: careerChangeForm.requestedCareer,
+        reason: careerChangeForm.reason.trim(),
+      });
+
+      setShowCareerChangeModal(false);
+      setCareerChangeForm({ requestedCareer: AVAILABLE_CAREERS[0].id, reason: '' });
+      alert('Career Change Request submitted successfully! It has been routed to Admin for review.');
+      await fetchProfileData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to submit career change request.');
+    } finally {
+      setSubmittingCareerChange(false);
     }
   };
 
@@ -315,55 +419,47 @@ const StudentProfilePage: React.FC = () => {
     );
   }
 
-  if (!profile && !isOwnProfile) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-cyan-500/20 p-8 max-w-md w-full text-center shadow-2xl">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4 animate-bounce" />
-          <h3 className="text-xl font-bold text-white mb-2">Profile Not Found</h3>
-          <p className="text-slate-400 mb-6">The requested student profile does not exist or has not been set up yet.</p>
-          <a href="/" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-slate-950 font-bold px-6 py-2.5 rounded-xl transition-all shadow-lg active:scale-95">Go Home</a>
-        </div>
-      </div>
-    );
-  }
+  const isProfileComplete = profile && profile.isProfileCompleted && profile.career;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Profile Header */}
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl border border-cyan-500/20 overflow-hidden shadow-2xl">
-          {/* Background Gradient */}
           <div className="h-32 bg-gradient-to-r from-cyan-900 to-blue-900" />
 
-          {/* Profile Content */}
           <div className="relative px-8 pb-8">
             <div className="flex items-end gap-6 -mt-16 mb-6 flex-wrap sm:flex-nowrap">
-              {/* Avatar */}
               <div className="relative">
                 <div className="w-32 h-32 rounded-2xl border-4 border-slate-800 bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
                   {(profile?.name || user?.name || '?').charAt(0).toUpperCase()}
                 </div>
               </div>
 
-              {/* Info */}
               <div className="flex-1 pb-2 min-w-[200px]">
-                <h1 className="text-3xl font-bold text-white">{profile?.name || user?.name}</h1>
-                <p className="text-slate-400">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-3xl font-bold text-white">{profile?.name || user?.name}</h1>
+                  {profile?.career && (
+                    <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5" /> {profile.career}
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-400 mt-1">
                   {((profile?.user?.role || profile?.role || user?.role || '').toLowerCase() === 'student') ? '👨‍🎓 Student' : (profile?.user?.role || profile?.role || user?.role || '')}
+                  {profile?.experienceLevel && ` • ${profile.experienceLevel}`}
                 </p>
               </div>
 
-              {/* Action Buttons */}
               {isOwnProfile && (
                 <div className="flex gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                   <button
                     onClick={handleOpenEditModal}
                     className="flex items-center gap-2 bg-gradient-to-r from-cyan-400 to-cyan-500 hover:from-cyan-500 hover:to-cyan-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl transition-all shadow-md active:scale-95"
                   >
-                    <Pencil className="w-4 h-4" /> {profile ? 'Edit Profile' : 'Set Up Profile'}
+                    <Pencil className="w-4 h-4" /> {isProfileComplete ? 'Edit Profile' : 'Set Up Profile'}
                   </button>
-                  {profile && (
+                  {isProfileComplete && (
                     <button
                       onClick={copyProfileLink}
                       className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl transition-all border border-slate-600 active:scale-95"
@@ -381,7 +477,7 @@ const StudentProfilePage: React.FC = () => {
                 { icon: Mail, label: 'Email', value: profile?.email || user?.email },
                 { icon: Phone, label: 'Phone', value: profile?.mobile || 'Not provided' },
                 { icon: MapPin, label: 'Location', value: profile?.location || 'Not provided' },
-                { icon: GraduationCap, label: 'Education', value: profile ? `${profile.degree} - ${profile.branch}` : 'Not provided' },
+                { icon: GraduationCap, label: 'Education', value: profile?.degree ? `${profile.degree} - ${profile.branch}` : 'Not provided' },
               ].map((item) => (
                 <div key={item.label} className="bg-slate-700/30 border border-slate-600 rounded-xl p-3">
                   <p className="text-slate-400 text-xs mb-1 flex items-center gap-2">
@@ -401,25 +497,126 @@ const StudentProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* Onboarding / Profile Setup Banner */}
-        {!profile && isOwnProfile && (
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-cyan-500/20 p-8 text-center shadow-2xl relative overflow-hidden">
-            <div className="absolute -left-20 -top-20 -z-10 h-64 w-64 rounded-full bg-cyan-500/10 blur-[80px]" />
-            <Award className="w-16 h-16 text-cyan-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Set Up Your SkillDNA Profile</h2>
-            <p className="text-slate-400 max-w-lg mx-auto mb-6">
-              Complete your profile information to unlock personalized AI interview coaching, track learning roadmaps, and generate verifiable certificates.
+        {/* 1. FIRST-TIME PROFILE SETUP WIZARD BANNER */}
+        {!isProfileComplete && isOwnProfile && (
+          <div className="bg-gradient-to-br from-cyan-950/60 via-slate-900 to-blue-950/60 rounded-2xl border-2 border-cyan-500/40 p-8 text-center shadow-2xl relative overflow-hidden">
+            <div className="absolute -left-20 -top-20 -z-10 h-64 w-64 rounded-full bg-cyan-500/15 blur-[80px]" />
+            <Award className="w-16 h-16 text-cyan-400 mx-auto mb-4 animate-pulse" />
+            <h2 className="text-2xl font-bold text-white mb-2">Complete First-Time Profile Setup</h2>
+            <p className="text-slate-300 max-w-xl mx-auto mb-6 text-sm">
+              Select your targeted Career to automatically generate your active curriculum (<code className="text-cyan-300">Domain → Topics → Subtopics</code>), unlock personalized topic notes, question bank MCQs, and AI mock interviews.
             </p>
             <button
               onClick={handleOpenEditModal}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-slate-950 font-bold px-8 py-3 rounded-xl transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95"
+              className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 text-slate-950 font-bold px-8 py-3 rounded-xl transition-all shadow-lg hover:shadow-cyan-500/25 active:scale-95 text-base"
             >
-              Get Started
+              Start First-Time Setup
             </button>
           </div>
         )}
 
-        {profile && (
+        {/* 2. ACTIVE CURRICULUM & CAREER GOVERNANCE CARD */}
+        {isProfileComplete && (
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-cyan-500/30 p-6 shadow-xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-700">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-cyan-400" />
+                  <h3 className="text-lg font-bold text-white">Active Learning Curriculum</h3>
+                  <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold">
+                    <Lock className="w-3 h-3" /> Career & Curriculum Locked
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Assigned Career: <span className="text-cyan-300 font-semibold">{profile.career}</span> • Domain: <span className="text-slate-200 font-semibold">{profile.activeCurriculum?.domain || 'Computer Science'}</span>
+                </p>
+              </div>
+
+              {isOwnProfile && (
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/learning"
+                    className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all border border-slate-600"
+                  >
+                    Open Learning Hub <ChevronRight className="w-4 h-4 text-cyan-400" />
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setCareerChangeForm({ requestedCareer: AVAILABLE_CAREERS[0].id, reason: '' });
+                      setShowCareerChangeModal(true);
+                    }}
+                    className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-md active:scale-95"
+                  >
+                    <GitPullRequest className="w-4 h-4" /> Request Career Change
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700/60">
+                <p className="text-xs text-slate-400">Curriculum Structure</p>
+                <p className="text-sm font-semibold text-slate-200 mt-0.5">Domain → Topics → Subtopics</p>
+              </div>
+              <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700/60">
+                <p className="text-xs text-slate-400">Core Topics Total</p>
+                <p className="text-sm font-semibold text-cyan-400 mt-0.5">
+                  {profile.activeCurriculum?.topics?.length || 7} Topics Curated
+                </p>
+              </div>
+              <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700/60">
+                <p className="text-xs text-slate-400">Curriculum Policy</p>
+                <p className="text-xs text-slate-300 mt-0.5">Changes require administrative review & audit preservation.</p>
+              </div>
+            </div>
+
+            {/* Career Change Request History */}
+            {isOwnProfile && careerRequests.length > 0 && (
+              <div className="mt-6 pt-4 border-t border-slate-700/70">
+                <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-cyan-400" /> Career Change Requests History
+                </h4>
+                <div className="space-y-2">
+                  {careerRequests.map((req) => (
+                    <div
+                      key={req._id}
+                      className="bg-slate-900/50 border border-slate-700/60 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-slate-400">Requested:</span>
+                          <span className="text-white font-semibold">{req.requestedCareer}</span>
+                          <span className="text-slate-500">from {req.currentCareer}</span>
+                          <span className="text-slate-500">• {new Date(req.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-slate-400 mt-1 italic">"{req.reason}"</p>
+                        {req.reviewNotes && (
+                          <p className="text-cyan-300 mt-1">Admin note: {req.reviewNotes}</p>
+                        )}
+                      </div>
+                      <span
+                        className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 border shrink-0 ${
+                          req.status === 'APPROVED'
+                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                            : req.status === 'REJECTED'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
+                        }`}
+                      >
+                        {req.status === 'APPROVED' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {req.status === 'REJECTED' && <XCircle className="w-3.5 h-3.5" />}
+                        {req.status === 'PENDING' && <Clock className="w-3.5 h-3.5" />}
+                        {req.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isProfileComplete && (
           <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1.2fr] gap-8 items-start">
             {/* Left Column */}
             <div className="space-y-8">
@@ -447,13 +644,13 @@ const StudentProfilePage: React.FC = () => {
                   <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-cyan-500/20 p-12 text-center shadow-lg">
                     <Award className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                     <h3 className="text-xl font-bold text-white mb-2">No Certificates Yet</h3>
-                    <p className="text-slate-400 mb-6">Complete practice interviews to generate your first certificate</p>
-                    <a
-                      href="/interview"
-                      className="inline-block bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-650 hover:to-blue-650 text-slate-950 font-bold px-6 py-2.5 rounded-xl transition-all shadow-md active:scale-95"
+                    <p className="text-slate-400 mb-6">Complete topic MCQs and practice interviews to generate verifiable certificates</p>
+                    <Link
+                      to="/interview"
+                      className="inline-block bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-slate-950 font-bold px-6 py-2.5 rounded-xl transition-all shadow-md active:scale-95"
                     >
                       Start Interview Practice
-                    </a>
+                    </Link>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -465,7 +662,6 @@ const StudentProfilePage: React.FC = () => {
                         transition={{ delay: idx * 0.1 }}
                         className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-cyan-500/20 hover:border-cyan-400/50 shadow-lg hover:shadow-cyan-500/20 transition-all overflow-hidden group"
                       >
-                        {/* Header */}
                         <div className="bg-gradient-to-r from-blue-900 to-cyan-900 p-4 flex items-center justify-between gap-4">
                           <div className="truncate">
                             <p className="text-xs text-cyan-300 font-mono truncate">{cert.certificateId}</p>
@@ -480,9 +676,7 @@ const StudentProfilePage: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Content */}
                         <div className="p-4 space-y-4">
-                          {/* Scores */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-slate-400 text-sm">Overall Score</span>
@@ -496,38 +690,26 @@ const StudentProfilePage: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Status */}
                           <div className={`inline-block px-3 py-1 rounded-lg text-xs font-semibold border ${getReadinessColor(cert.interviewReadinessStatus)}`}>
                             {cert.interviewReadinessStatus.replace('_', ' ')}
                           </div>
 
-                          {/* Dates */}
                           <div className="text-xs text-slate-500 space-y-1">
                             <p>Issued: {new Date(cert.issueDate).toLocaleDateString()}</p>
                             <p>Expires: {new Date(cert.expiryDate).toLocaleDateString()}</p>
                           </div>
 
-                          {/* Shared Count */}
-                          {cert.sharedWith.length > 0 && (
-                            <div className="bg-slate-700/30 rounded px-3 py-2 text-xs text-slate-300">
-                              Shared with {cert.sharedWith.length} recruiter{cert.sharedWith.length !== 1 ? 's' : ''}
-                            </div>
-                          )}
-
-                          {/* Actions */}
                           {cert.status === 'APPROVED' ? (
                             <div className="flex gap-2 pt-2 border-t border-slate-700">
                               <button
                                 onClick={() => window.open(`/certificate/${cert.certificateId}`, '_blank')}
                                 className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded transition-all active:scale-95"
-                                title="View certificate"
                               >
                                 <Eye className="w-3 h-3 text-cyan-400" /> View
                               </button>
                               <button
                                 onClick={() => handleDownloadPDF(cert.certificateId)}
                                 className="flex-1 flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded transition-all active:scale-95"
-                                title="Download PDF"
                               >
                                 <Download className="w-3 h-3 text-cyan-400" /> PDF
                               </button>
@@ -538,7 +720,6 @@ const StudentProfilePage: React.FC = () => {
                                     setShowShareModal(true);
                                   }}
                                   className="flex-1 flex items-center justify-center gap-1 bg-gradient-to-r from-cyan-600 to-blue-500 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold py-2 rounded transition-all active:scale-95"
-                                  title="Share certificate"
                                 >
                                   <Share2 className="w-3 h-3" /> Share
                                 </button>
@@ -566,9 +747,9 @@ const StudentProfilePage: React.FC = () => {
 
               {/* About Section */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-cyan-500/20 p-6 shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">About</h3>
+                <h3 className="text-lg font-bold text-white mb-4">About & Career Objective</h3>
                 <p className="text-slate-300 leading-relaxed text-sm">
-                  {profile.bio || 'No description provided. Add a bio to help recruiters understand your career goals and interests.'}
+                  {profile.bio || 'No description provided. Add a bio to showcase your skills, objectives, and project background.'}
                 </p>
               </div>
             </div>
@@ -606,7 +787,7 @@ const StudentProfilePage: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-3 pb-2 border-b border-slate-700 flex items-center gap-2">
                     <Briefcase className="w-5 h-5 text-cyan-400" />
-                    Preferred Roles
+                    Target Job Roles
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {profile.preferredRoles.map((role) => (
@@ -638,7 +819,7 @@ const StudentProfilePage: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-3 pb-2 border-b border-slate-700 flex items-center gap-2">
                     <Briefcase className="w-5 h-5 text-cyan-400" />
-                    Interests
+                    Interests & Domains
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {profile.interests.map((interest) => (
@@ -653,6 +834,89 @@ const StudentProfilePage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Career Change Request Modal */}
+      {showCareerChangeModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-amber-500/30 max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700">
+              <div className="flex items-center gap-2">
+                <GitPullRequest className="w-5 h-5 text-amber-400" />
+                <h3 className="text-lg font-bold text-white">Request Career Change</h3>
+              </div>
+              <button
+                onClick={() => setShowCareerChangeModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitCareerChange} className="mt-4 space-y-4">
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-200">
+                <p className="font-semibold mb-1">Important Governance Notice:</p>
+                To maintain consistent skill evaluation, changing your career and active curriculum requires Administrative approval. Your past learning records and certificates will remain preserved.
+              </div>
+
+              <div>
+                <label className="text-slate-400 text-xs font-semibold mb-1 block">Current Career</label>
+                <div className="w-full bg-slate-950/60 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+                  <Lock className="w-3.5 h-3.5 text-slate-500" /> {profile?.career || 'None Selected'}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 text-xs font-semibold mb-1.5 block">
+                  Select New Target Career <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={careerChangeForm.requestedCareer}
+                  onChange={(e) => setCareerChangeForm({ ...careerChangeForm, requestedCareer: e.target.value })}
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+                  required
+                >
+                  {AVAILABLE_CAREERS.map((c) => (
+                    <option key={c.id} value={c.id} disabled={c.id === profile?.career}>
+                      {c.id} ({c.domain}) {c.id === profile?.career ? '• Current' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-300 text-xs font-semibold mb-1.5 block">
+                  Reason / Justification for Career Change <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={careerChangeForm.reason}
+                  onChange={(e) => setCareerChangeForm({ ...careerChangeForm, reason: e.target.value })}
+                  placeholder="Explain why you want to transition to this career (e.g. Completed specialized coursework, changed domain focus, internship alignment)..."
+                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-amber-400 placeholder-slate-500"
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={submittingCareerChange}
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold py-2.5 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 text-sm"
+                >
+                  {submittingCareerChange ? 'Submitting...' : 'Submit Request for Approval'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCareerChangeModal(false)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2.5 rounded-xl transition-all text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Share Modal */}
       {showShareModal && (
@@ -672,27 +936,13 @@ const StudentProfilePage: React.FC = () => {
                 />
               </div>
 
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                <p className="text-blue-200 text-xs">
-                  Your certificate will be shared with this recruiter. They can access it via a secure link.
-                </p>
-              </div>
-
               <div className="flex gap-3">
                 <button
                   type="submit"
                   disabled={sharing}
                   className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:from-slate-600 disabled:to-slate-600 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2"
                 >
-                  {sharing ? (
-                    <>
-                      <Loader className="w-4 h-4 animate-spin" /> Sharing...
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-4 h-4" /> Share
-                    </>
-                  )}
+                  {sharing ? <Loader className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />} Share
                 </button>
                 <button
                   type="button"
@@ -769,28 +1019,6 @@ const StudentProfilePage: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-slate-300 font-semibold mb-2 block">Strengths (comma-separated)</label>
-                <textarea
-                  value={formData.strengths}
-                  onChange={(e) => setFormData({ ...formData, strengths: e.target.value })}
-                  placeholder="e.g., Problem Solving, System Design, Technical Depth"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-2 block">Improvements (comma-separated)</label>
-                <textarea
-                  value={formData.improvements}
-                  onChange={(e) => setFormData({ ...formData, improvements: e.target.value })}
-                  placeholder="e.g., Communication, Time Management, Stress Handling"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
-                  rows={2}
-                />
-              </div>
-
               <div className="flex gap-4 pt-4 border-t border-slate-700">
                 <button
                   type="submit"
@@ -811,12 +1039,21 @@ const StudentProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile / First-Time Setup Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-cyan-500/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-cyan-500/30 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <div className="sticky top-0 bg-gradient-to-r from-blue-900 to-cyan-900 p-6 flex items-center justify-between border-b border-cyan-500/20 z-10">
-              <h2 className="text-2xl font-bold text-white">{profile ? 'Edit Profile Details' : 'Create Profile'}</h2>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {!isProfileComplete ? 'Complete Initial Profile Setup' : 'Edit Profile Information'}
+                </h2>
+                <p className="text-xs text-cyan-200 mt-0.5">
+                  {!isProfileComplete
+                    ? 'Select your core Career to automatically configure your active curriculum.'
+                    : 'Personal and educational information can be updated here.'}
+                </p>
+              </div>
               <button
                 onClick={() => setShowEditModal(false)}
                 className="text-slate-400 hover:text-white transition-colors"
@@ -827,6 +1064,53 @@ const StudentProfilePage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
+              {/* CAREER FIELD: Selectable on first setup, LOCKED on subsequent edits */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-slate-200 font-semibold text-sm flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-cyan-400" />
+                    Target Career <span className="text-red-400">*</span>
+                  </label>
+                  {isProfileComplete && (
+                    <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked by policy
+                    </span>
+                  )}
+                </div>
+
+                {!isProfileComplete ? (
+                  <div className="space-y-2">
+                    <select
+                      value={editFormData.career}
+                      onChange={(e) => setEditFormData({ ...editFormData, career: e.target.value })}
+                      className="w-full bg-slate-700 border-2 border-cyan-500/60 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-400 cursor-pointer font-medium"
+                      required
+                    >
+                      {AVAILABLE_CAREERS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.id} — {c.domain}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-cyan-300">
+                      💡 Setting this creates your active curriculum with custom topics, MCQ banks, notes, and adaptive mock interviews.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="w-full bg-slate-950/70 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+                      <span>{profile.career}</span>
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <Lock className="w-3 h-3 text-slate-500" /> Direct edit disabled
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      To change your career or curriculum, submit a request using the "Request Career Change" button on your profile.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-slate-300 font-semibold mb-2 block text-sm">Full Name <span className="text-red-400">*</span></label>
@@ -879,7 +1163,7 @@ const StudentProfilePage: React.FC = () => {
                     type="text"
                     value={editFormData.degree}
                     onChange={(e) => setEditFormData({ ...editFormData, degree: e.target.value })}
-                    placeholder="e.g. B.Tech, M.S., B.Pharm"
+                    placeholder="e.g. B.Tech, M.S."
                     className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
                     required
                   />
@@ -896,19 +1180,16 @@ const StudentProfilePage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-300 font-semibold mb-2 block text-sm">Current Progress <span className="text-red-400">*</span></label>
+                  <label className="text-slate-300 font-semibold mb-2 block text-sm">Experience Level <span className="text-red-400">*</span></label>
                   <select
-                    value={editFormData.semester}
-                    onChange={(e) => setEditFormData({ ...editFormData, semester: e.target.value })}
-                    className="w-full h-10 bg-slate-700 border border-slate-600 text-white rounded-lg px-4 focus:outline-none focus:border-cyan-400 cursor-pointer"
+                    value={editFormData.experienceLevel}
+                    onChange={(e) => setEditFormData({ ...editFormData, experienceLevel: e.target.value })}
+                    className="w-full h-10 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 focus:outline-none focus:border-cyan-400 cursor-pointer"
                     required
                   >
-                    <option value="" disabled>Select semester</option>
-                    <option value="1st_year">1st Year / Sem 1-2</option>
-                    <option value="2nd_year">2nd Year / Sem 3-4</option>
-                    <option value="3rd_year">3rd Year / Sem 5-6</option>
-                    <option value="4th_year">4th Year / Sem 7-8</option>
-                    <option value="graduated">Already Graduated</option>
+                    <option value="Fresher">Fresher / Student</option>
+                    <option value="Intermediate (1-2 years)">Intermediate (1-2 years)</option>
+                    <option value="Experienced (3+ years)">Experienced (3+ years)</option>
                   </select>
                 </div>
               </div>
@@ -920,7 +1201,7 @@ const StudentProfilePage: React.FC = () => {
                   onChange={(e) => setEditFormData({ ...editFormData, bio: e.target.value })}
                   placeholder="Tell recruiters about yourself, your career path, and achievements..."
                   className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
-                  rows={3}
+                  rows={2}
                 />
               </div>
 
@@ -930,31 +1211,32 @@ const StudentProfilePage: React.FC = () => {
                   type="text"
                   value={editFormData.skills}
                   onChange={(e) => setEditFormData({ ...editFormData, skills: e.target.value })}
-                  placeholder="e.g. React.js, TypeScript, Python, REST APIs"
+                  placeholder="e.g. Java, Spring Boot, React, SQL, DSA"
                   className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
                 />
               </div>
 
-              <div>
-                <label className="text-slate-300 font-semibold mb-2 block text-sm">Interests (comma-separated)</label>
-                <input
-                  type="text"
-                  value={editFormData.interests}
-                  onChange={(e) => setEditFormData({ ...editFormData, interests: e.target.value })}
-                  placeholder="e.g. Artificial Intelligence, Cryptography, Open Source"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-2 block text-sm">Preferred Job Roles (comma-separated)</label>
-                <input
-                  type="text"
-                  value={editFormData.preferredRoles}
-                  onChange={(e) => setEditFormData({ ...editFormData, preferredRoles: e.target.value })}
-                  placeholder="e.g. Frontend Developer, Fullstack Engineer, Data Analyst"
-                  className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-slate-300 font-semibold mb-2 block text-sm">Interests (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={editFormData.interests}
+                    onChange={(e) => setEditFormData({ ...editFormData, interests: e.target.value })}
+                    placeholder="e.g. Distributed Systems, AI, Cloud"
+                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-300 font-semibold mb-2 block text-sm">Preferred Job Roles (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={editFormData.preferredRoles}
+                    onChange={(e) => setEditFormData({ ...editFormData, preferredRoles: e.target.value })}
+                    placeholder="e.g. Java Developer, Backend Engineer"
+                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 placeholder-slate-500"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-4 pt-4 border-t border-slate-700">
