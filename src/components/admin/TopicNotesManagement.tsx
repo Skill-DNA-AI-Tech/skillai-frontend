@@ -64,8 +64,8 @@ export const TopicNotesManagement: React.FC = () => {
       if (selectedDomain !== 'ALL') params.append('domain', selectedDomain);
       if (searchTopic) params.append('topic', searchTopic);
 
-      const data = await apiRequest<any[]>(`/admin/notes?${params.toString()}`, { token });
-      setNotes(Array.isArray(data) ? data : []);
+      const data = await apiRequest<any>(`/admin/notes?${params.toString()}`, { token });
+      setNotes(Array.isArray(data) ? data : (data?.notes || []));
     } catch (err) {
       console.warn('Failed to load notes:', err);
     } finally {
@@ -77,8 +77,8 @@ export const TopicNotesManagement: React.FC = () => {
     if (!token) return;
     setRequestsLoading(true);
     try {
-      const data = await apiRequest<any[]>('/admin/notes/requests', { token });
-      setContentRequests(Array.isArray(data) ? data : []);
+      const data = await apiRequest<any>('/admin/notes/requests', { token });
+      setContentRequests(Array.isArray(data) ? data : (data?.requests || []));
     } catch (err) {
       console.warn('Failed to load content requests:', err);
     } finally {
@@ -124,7 +124,7 @@ export const TopicNotesManagement: React.FC = () => {
         keyTakeaways: manualForm.keyTakeaways
           ? manualForm.keyTakeaways.split('\n').map((k) => k.trim()).filter(Boolean)
           : [],
-        status: 'PUBLISHED',
+        status: 'Published',
       };
 
       if (manualForm.codeSnippet.trim()) {
@@ -138,11 +138,11 @@ export const TopicNotesManagement: React.FC = () => {
       }
 
       if (manualForm.youtubeUrl.trim()) {
-        payload.youtubeResources = [
+        payload.resources = [
           {
-            title: manualForm.youtubeTitle.trim() || `${manualForm.topic} Guide`,
+            type: 'youtube',
             url: manualForm.youtubeUrl.trim(),
-            channel: 'Curated Resource',
+            title: manualForm.youtubeTitle.trim() || `${manualForm.topic} Tutorial`,
           },
         ];
       }
@@ -194,9 +194,11 @@ export const TopicNotesManagement: React.FC = () => {
         domain: aiGenerateForm.domain,
         topic: aiGenerateForm.topic,
         subtopic: aiGenerateForm.subtopic,
-        content: data.notes?.content || data.notes || '',
-        keyTakeaways: data.notes?.keyTakeaways || [],
-        codeExamples: data.notes?.codeExamples || [],
+        title: data.title || data.notes?.title || `${aiGenerateForm.topic} - ${aiGenerateForm.subtopic}`,
+        content: data.notes?.content || data.richText || data.overview || '',
+        keyTakeaways: data.notes?.keyTakeaways || data.keyTakeaways || [],
+        codeExamples: data.notes?.codeExamples || (data.examples ? [data.examples] : []),
+        resources: data.resources || data.notes?.resources || [],
       });
     } catch (err: any) {
       alert(err.message || 'AI note generation failed');
@@ -213,7 +215,7 @@ export const TopicNotesManagement: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({
           ...generatedDraft,
-          status: 'PUBLISHED',
+          status: 'Published',
         }),
         token,
       });

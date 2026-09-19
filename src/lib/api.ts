@@ -2,15 +2,51 @@ export const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  // Fallback directly to the production Render backend for remote hosting
+  // Fallback to Authoritative Application Backend for remote hosting
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://skillai-backend.onrender.com/api';
+    return 'https://skilldna-backend.onrender.com/api';
   }
   // Local fallback for dev server on port 5000
   return 'http://localhost:5000/api';
 };
 
+export const getAuthApiBaseUrl = () => {
+  if (import.meta.env.VITE_AUTH_API_URL) {
+    return import.meta.env.VITE_AUTH_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://skillai-backend.onrender.com/api';
+  }
+  return 'http://localhost:8001/api';
+};
+
 export const API_BASE_URL = getApiBaseUrl();
+export const AUTH_API_BASE_URL = getAuthApiBaseUrl();
+
+export const getBaseUrlForPath = (path: string): string => {
+  const clean = normalizeApiPath(path);
+  // Dedicated FastAPI Authentication Microservice endpoints
+  if (
+    clean.startsWith('/auth/admin/login') ||
+    clean.startsWith('/auth/admin/verify') ||
+    clean.startsWith('/auth/admin/me') ||
+    clean.startsWith('/auth/google') ||
+    clean.startsWith('/auth/verify-email')
+  ) {
+    return AUTH_API_BASE_URL;
+  }
+  // All business logic, admin operations, and application features route to Authoritative Backend
+  return API_BASE_URL;
+};
+
+export const formatApiError = (err: any): string => {
+  if (!err) return 'An unexpected error occurred.';
+  if (typeof err === 'string') return err;
+  if (err.message) return err.message;
+  if (err.response?.data?.message) return err.response.data.message;
+  if (err.response?.data?.error) return err.response.data.error;
+  return 'Operation failed. Please try again.';
+};
 
 type RequestOptions = RequestInit & {
   token?: string;
@@ -108,8 +144,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  const cleanPath = normalizeApiPath(path);
+  const baseUrl = getBaseUrlForPath(cleanPath);
+  const method = (options.method || 'GET').toUpperCase();
+
   const { token: _token, ...fetchOptions } = options;
-  const response = await fetch(`${API_BASE_URL}${normalizeApiPath(path)}`, {
+  const response = await fetch(`${baseUrl}${cleanPath}`, {
     ...fetchOptions,
     headers,
   });
@@ -130,14 +170,18 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
       }
     }
 
-    let message = json?.message || json?.detail || json?.error || response.statusText;
-    if (!message && json && typeof json === 'object') {
+    let rawMsg = json?.message || json?.detail || json?.error;
+    if (!rawMsg && json && typeof json === 'object') {
       if (Array.isArray(json.detail)) {
-        message = json.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+        rawMsg = json.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
       }
     }
-    if (!message) {
-      message = `API request failed with ${response.status}`;
+
+    let message = rawMsg || response.statusText;
+    if (response.status === 404) {
+      message = `[${method} ${cleanPath}] Route not found (404). Please ensure the application backend is reachable.`;
+    } else if (!message) {
+      message = `[${method} ${cleanPath}] API request failed with ${response.status}`;
     }
     throw new Error(message);
   }
@@ -158,8 +202,12 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
     headers.set('Content-Type', 'application/json');
   }
 
+  const cleanPath = normalizeApiPath(path);
+  const baseUrl = getBaseUrlForPath(cleanPath);
+  const httpMethod = method.toUpperCase();
+
   const { token: _token, responseType, ...fetchOptions } = config;
-  const response = await fetch(`${API_BASE_URL}${normalizeApiPath(path)}`, {
+  const response = await fetch(`${baseUrl}${cleanPath}`, {
     ...fetchOptions,
     method,
     headers,
@@ -184,7 +232,12 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
     if (!errDetail && errorBody && typeof errorBody === 'object' && Array.isArray(errorBody.detail)) {
       errDetail = errorBody.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
     }
-    const error = new Error(errDetail || `Request failed with status ${response.status}`) as Error & {
+    if (response.status === 404) {
+      errDetail = `[${httpMethod} ${cleanPath}] Route not found (404) on backend service.`;
+    }
+
+    const finalMessage = errDetail || `[${httpMethod} ${cleanPath}] Request failed with status ${response.status}`;
+    const error = new Error(finalMessage) as Error & {
       response?: { data: any; status: number };
     };
     error.response = { data: errorBody, status: response.status };

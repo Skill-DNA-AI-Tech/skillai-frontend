@@ -46,8 +46,8 @@ export const CareerChangeManagement: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiRequest<CareerChangeRequestItem[]>('/career-change-requests', { token });
-      setRequests(Array.isArray(data) ? data : []);
+      const data = await apiRequest<any>('/career-change-requests', { token });
+      setRequests(Array.isArray(data) ? data : (data?.requests || []));
     } catch (err: any) {
       setError(err.message || 'Failed to fetch career change requests');
     } finally {

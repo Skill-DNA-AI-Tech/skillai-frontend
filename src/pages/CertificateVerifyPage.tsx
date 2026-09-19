@@ -25,6 +25,8 @@ interface VerificationData {
     qrCode?: string;
     issuedByName?: string;
     adminSignatureBase64?: string;
+    adminRemark?: string;
+    officialRemark?: string;
   };
   verified: boolean;
 }
@@ -216,6 +218,19 @@ const CertificateVerifyPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Official Certification Remark */}
+              {(data.certificate.adminRemark || data.certificate.officialRemark) && (
+                <div className="bg-cyan-950/40 border border-cyan-500/30 rounded-xl p-5">
+                  <p className="text-cyan-300 font-bold text-xs mb-1.5 uppercase tracking-wider flex items-center gap-2">
+                    <Award className="w-4 h-4 text-cyan-400" />
+                    Official Certification Remark
+                  </p>
+                  <p className="text-slate-200 text-sm italic leading-relaxed">
+                    "{data.certificate.adminRemark || data.certificate.officialRemark}"
+                  </p>
+                </div>
+              )}
 
               {/* Verification Notice */}
               <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-4 text-center text-slate-400">
