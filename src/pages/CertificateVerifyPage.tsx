@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader, QrCode, Copy, Check, ShieldCheck, Award } from 'lucide-react';
 import { api } from '../lib/api';
 
 interface VerificationData {
   message: string;
   certificate: {
-    _id: string;
+    _id?: string;
     certificateId: string;
     studentName: string;
     email: string;
@@ -22,6 +22,9 @@ interface VerificationData {
     interviewReadinessStatus: string;
     strengths: string[];
     improvements: string[];
+    qrCode?: string;
+    issuedByName?: string;
+    adminSignatureBase64?: string;
   };
   verified: boolean;
 }
@@ -31,6 +34,7 @@ const CertificateVerifyPage: React.FC = () => {
   const [data, setData] = useState<VerificationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const verifyCertificate = async () => {
@@ -153,26 +157,70 @@ const CertificateVerifyPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Certificate Metadata & QR Section */}
+              <div className="bg-slate-800/80 border border-cyan-500/20 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-5">
+                <div className="flex items-center gap-4">
+                  <div className="bg-white p-2 rounded-lg border border-cyan-500/30 shadow-md shrink-0">
+                    <img
+                      src={data.certificate.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`}
+                      alt="Verification QR Code"
+                      className="w-24 h-24 object-contain"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-sm flex items-center gap-1.5">
+                      <QrCode className="w-4 h-4 text-cyan-400" />
+                      Public Verification QR
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                      Scan with any mobile camera to independently verify authenticity on SkillDNA AI Ledger.
+                    </p>
+                    <p className="text-xs text-slate-500 font-mono mt-1.5">
+                      ID: {data.certificate.certificateId}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(data.certificate.certificateId);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700/90 hover:bg-slate-700 text-xs font-semibold text-white border border-white/10 transition-all shrink-0"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
+                  {copied ? 'Copied ID' : 'Copy ID'}
+                </button>
+              </div>
+
               {/* Certificate Metadata */}
               <div className="bg-slate-700/30 border border-cyan-500/20 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-400">Certificate ID:</span>
                   <span className="text-cyan-300 font-mono text-xs">{data.certificate.certificateId}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Issued:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Issued On:</span>
                   <span className="text-slate-300">{new Date(data.certificate.issueDate).toLocaleDateString()}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-400">Expires:</span>
                   <span className="text-slate-300">{new Date(data.certificate.expiryDate).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Issuing Authority:</span>
+                  <span className="text-cyan-300 font-medium text-xs flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    {data.certificate.issuedByName || 'SkillDNA AI Global Certification Authority'}
+                  </span>
                 </div>
               </div>
 
               {/* Verification Notice */}
-              <div className="bg-slate-700/30 border border-slate-600 rounded-lg p-4 text-center text-slate-400">
-                <p className="text-sm">
-                  This certificate was issued by SkillDNA AI and can be verified on our platform. The information presented above is authentic and has been verified by our system.
+              <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-4 text-center text-slate-400">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  This credential was cryptographically validated and ledger-stamped by SkillDNA AI Autonomous Evaluator. All competency scores are verified and tamper-proof.
                 </p>
               </div>
             </div>

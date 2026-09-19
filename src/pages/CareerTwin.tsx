@@ -9,6 +9,9 @@ import {
   RefreshCw,
   Target,
   TrendingUp,
+  Compass,
+  ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -17,6 +20,22 @@ import ProgressBar from '../components/ProgressBar';
 import SectionHeader from '../components/SectionHeader';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+
+interface WeaknessRemediation {
+  concept: string;
+  topic: string;
+  domain: string;
+  score: number;
+  diagnostic: string;
+  personalizedNotes?: string;
+  youtubeResources?: Array<{ title: string; url: string; channel?: string }>;
+  externalResources?: Array<{ title: string; url: string; platform?: string }>;
+  examples?: string;
+  practiceQuestions?: Array<{ question: string; answer: string }>;
+  reassessmentAvailable?: boolean;
+  resolved?: boolean;
+  lastAssessedAt?: string;
+}
 
 interface InterviewHistoryItem {
   label: string;
@@ -65,6 +84,7 @@ interface CareerTwinMemory {
   mentorSuggestions: string[];
   skillGaps: string[];
   recommendations: TaskItem[];
+  weaknessRemediations?: WeaknessRemediation[];
   dynamicInterview?: DynamicInterview;
   generatedAt?: string;
 }
@@ -227,6 +247,70 @@ const CareerTwin = () => {
               </div>
             </div>
           </section>
+
+          {/* TARGETED WEAKNESS REMEDIATION SECTION (SCORE < 75%) */}
+          {memory.weaknessRemediations && memory.weaknessRemediations.length > 0 && (
+            <section className="rounded-2xl border border-amber-500/30 bg-slate-900/80 p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Compass className="h-5 w-5 text-amber-400" />
+                  <div>
+                    <h3 className="text-base font-bold text-white">Targeted Weakness Remediation (Score &lt; 75%)</h3>
+                    <p className="text-xs text-slate-400">Continuous learning loop: Diagnosed weak points requiring practice and reassessment</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full font-bold self-start sm:self-auto">
+                  {memory.weaknessRemediations.filter(r => !r.resolved).length} Pending Reassessments
+                </span>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {memory.weaknessRemediations.map((rem, idx) => (
+                  <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-white text-sm">{rem.concept}</span>
+                        <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border shrink-0 ${rem.resolved ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>
+                          {rem.resolved ? 'Mastered (>= 75%)' : `Score: ${rem.score}%`}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-300 leading-relaxed">{rem.diagnostic}</p>
+
+                      {rem.personalizedNotes && (
+                        <div className="text-xs text-slate-300 bg-slate-900/80 p-3 rounded-lg border border-slate-800 font-mono whitespace-pre-line">
+                          {rem.personalizedNotes}
+                        </div>
+                      )}
+
+                      {rem.youtubeResources && rem.youtubeResources.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Video Tutorials:</p>
+                          {rem.youtubeResources.map((yt, yIdx) => (
+                            <a key={yIdx} href={yt.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-xs text-cyan-400 hover:text-cyan-300 bg-slate-900/40 p-2 rounded border border-slate-800/80">
+                              <span className="truncate">{yt.title}</span>
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800/80 flex justify-end">
+                      <button
+                        onClick={() => {
+                          window.location.href = `/learning`;
+                        }}
+                        className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-bold px-3.5 py-1.5 rounded-lg transition active:scale-95 flex items-center gap-1.5 shadow-md"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Take Topic Reassessment
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="grid gap-6 lg:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-slate-900/60 p-6">

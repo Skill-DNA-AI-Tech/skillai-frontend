@@ -1,15 +1,17 @@
 import { 
   Play, RotateCcw, Loader2, Send, CheckCircle2, TrendingUp, Award, 
   Download, Share2, ExternalLink, Copy, AlertTriangle, Sparkles, 
-  BookOpen, ShieldAlert, ArrowRight, Check 
+  BookOpen, ShieldAlert, ArrowRight, Check, Mic, MicOff, Video, VideoOff,
+  Eye, Volume2, VolumeX, RefreshCw
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { apiRequest, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import SectionHeader from '../components/SectionHeader';
 import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
+import { SpeechToTextSession, EngagementVisualTracker, VisualMetrics, AudioMetrics } from '../lib/speechAndVision';
 
 type InterviewMode = 'setup' | 'active' | 'completed';
 
@@ -77,6 +79,31 @@ const DynamicInterviewPage = () => {
   const [sharing, setSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Audio & STT State
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioVolume, setAudioVolume] = useState(0);
+  const [transcriptionConfidence, setTranscriptionConfidence] = useState<number | null>(null);
+  const [audioWarning, setAudioWarning] = useState<string | null>(null);
+  const [wasRecordedAudio, setWasRecordedAudio] = useState(false);
+  const [lastRecordedMetrics, setLastRecordedMetrics] = useState<AudioMetrics | null>(null);
+
+  // Video & Engagement State
+  const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [visualMetrics, setVisualMetrics] = useState<VisualMetrics>({
+    faceDetected: false,
+    cameraFacingPercentage: 100,
+    lookingAwayPercentage: 0,
+    multipleFacesDetected: false,
+    behaviorStatus: 'NORMAL',
+    sampleCount: 0,
+  });
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const sttSessionRef = useRef<SpeechToTextSession | null>(null);
+  const visualTrackerRef = useRef<EngagementVisualTracker | null>(null);
+  const questionStartTime = useRef<number>(Date.now());
   
   const location = useLocation();
   const [setupForm, setSetupForm] = useState({
@@ -132,6 +159,81 @@ const DynamicInterviewPage = () => {
     }
   }, [location]);
 
+  // Initialize camera when entering active mode
+  useEffect(() => {
+    if (mode === 'active' && cameraEnabled && videoRef.current) {
+      const tracker = new EngagementVisualTracker((metrics) => {
+        setVisualMetrics(metrics);
+      });
+      visualTrackerRef.current = tracker;
+      tracker.start(videoRef.current).then((active) => {
+        setCameraActive(active);
+      });
+    }
+
+    return () => {
+      if (visualTrackerRef.current) {
+        visualTrackerRef.current.stop();
+        visualTrackerRef.current = null;
+      }
+      if (sttSessionRef.current) {
+        sttSessionRef.current.stop();
+        sttSessionRef.current = null;
+      }
+    };
+  }, [mode, cameraEnabled]);
+
+  const toggleCamera = async () => {
+    if (cameraActive) {
+      if (visualTrackerRef.current) {
+        visualTrackerRef.current.stop();
+        visualTrackerRef.current = null;
+      }
+      setCameraActive(false);
+      setCameraEnabled(false);
+    } else {
+      setCameraEnabled(true);
+      if (videoRef.current) {
+        const tracker = new EngagementVisualTracker((metrics) => {
+          setVisualMetrics(metrics);
+        });
+        visualTrackerRef.current = tracker;
+        const active = await tracker.start(videoRef.current);
+        setCameraActive(active);
+      }
+    }
+  };
+
+  const toggleVoiceRecording = async () => {
+    if (isRecording) {
+      if (sttSessionRef.current) {
+        const metrics = sttSessionRef.current.stop();
+        setLastRecordedMetrics(metrics);
+        setIsRecording(false);
+        setAudioVolume(0);
+      }
+    } else {
+      setAudioWarning(null);
+      const session = new SpeechToTextSession(
+        (transcript, _isFinal, conf) => {
+          setUserAnswer(transcript);
+          setTranscriptionConfidence(conf);
+          setWasRecordedAudio(true);
+        },
+        (volume) => setAudioVolume(volume),
+        (warning) => setAudioWarning(warning)
+      );
+      sttSessionRef.current = session;
+      const started = await session.start();
+      if (started) {
+        setIsRecording(true);
+        setWasRecordedAudio(true);
+      } else {
+        alert('Could not access microphone or Speech Recognition is not supported by your browser. You can type your answer in the box.');
+      }
+    }
+  };
+
   const handleDomainSelect = (selectedDomain: string) => {
     const matched = DOMAIN_OPTIONS.find(d => d.domain === selectedDomain);
     setSetupForm({
@@ -159,6 +261,16 @@ const DynamicInterviewPage = () => {
 
   const fetchNextQuestion = async (sid: string) => {
     try {
+      if (sttSessionRef.current && isRecording) {
+        sttSessionRef.current.stop();
+        setIsRecording(false);
+        setAudioVolume(0);
+      }
+      setAudioWarning(null);
+      setWasRecordedAudio(false);
+      setTranscriptionConfidence(null);
+      questionStartTime.current = Date.now();
+
       const response = await apiRequest<any>(`/questions/interview/next/${sid}`, { token });
       
       if (response.completed) {
@@ -179,6 +291,18 @@ const DynamicInterviewPage = () => {
     if (!sessionId || !currentQuestion) return;
 
     const answerToSend = forcedAnswer !== undefined ? forcedAnswer : userAnswer;
+    const isAudio = wasRecordedAudio || isRecording;
+
+    let finalAudioMetrics = lastRecordedMetrics || { confidence: 0.9, audioQuality: 'GOOD' as const };
+    if (sttSessionRef.current && isRecording) {
+      const stoppedMetrics = sttSessionRef.current.stop();
+      finalAudioMetrics = stoppedMetrics;
+      setIsRecording(false);
+      setAudioVolume(0);
+    }
+
+    const currentVisual = visualTrackerRef.current ? visualTrackerRef.current.getMetrics() : visualMetrics;
+    const timeTaken = Math.max(5, Math.round((Date.now() - questionStartTime.current) / 1000));
 
     setSubmitting(true);
     try {
@@ -188,8 +312,17 @@ const DynamicInterviewPage = () => {
           sessionId,
           questionId: currentQuestion.questionId,
           answer: answerToSend,
-          answerType: 'Text',
-          timeTaken: 90,
+          answerType: isAudio ? 'Audio' : 'Text',
+          timeTaken,
+          transcriptionConfidence: isAudio ? finalAudioMetrics.confidence : undefined,
+          audioQuality: isAudio ? finalAudioMetrics.audioQuality : undefined,
+          visualMetrics: {
+            faceDetected: currentVisual.faceDetected,
+            cameraFacingPercentage: currentVisual.cameraFacingPercentage,
+            lookingAwayPercentage: currentVisual.lookingAwayPercentage,
+            multipleFacesDetected: currentVisual.multipleFacesDetected,
+            behaviorStatus: currentVisual.behaviorStatus,
+          },
         }),
         token,
       });
@@ -271,6 +404,7 @@ const DynamicInterviewPage = () => {
       const certRes = await apiRequest<any>('/certificates/create', {
         method: 'POST',
         body: JSON.stringify({
+          sessionId,
           careerPath: report.role || report.domain || setupForm.field || 'Career Development',
           technicalScore: Math.round(scores.technical ?? scores.averageTechnical ?? 75),
           communicationScore: Math.round(scores.communication ?? scores.averageCommunication ?? 75),
@@ -541,83 +675,215 @@ const DynamicInterviewPage = () => {
             <ProgressBar value={progress * 100} tone="bg-cyan-500" />
           </div>
 
-          {/* Question Card */}
-          <div className="rounded-xl border border-white/10 bg-slate-900/70 p-6 shadow-xl backdrop-blur-md space-y-5">
-            <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
-                Topic: {currentQuestion.topic || setupForm.topic}
-              </span>
-              <span className="text-xs px-2.5 py-1 rounded bg-slate-950 text-cyan-300 font-mono border border-cyan-500/20">
-                Target Response Time: {currentQuestion.expectedDuration || 90}s
-              </span>
-            </div>
-
-            <div className="text-xl font-semibold text-white leading-relaxed">
-              {currentQuestion.question}
-            </div>
-
-            {/* Answer Input Area */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                Your Answer / Diagnostic Explanation:
-              </label>
-              <textarea
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                placeholder="Type your structured explanation here. Be thorough with technical principles, methodology, and problem-solving reasoning..."
-                className="w-full h-40 px-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none resize-y text-sm font-sans"
-              />
-            </div>
-
-            {/* Submission Actions */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm("Submit empty answer? Empty answers strictly receive 0 marks across all 5 competencies.")) {
-                      submitAnswer('');
-                    }
-                  }}
-                  disabled={submitting}
-                  className="px-3.5 py-2 rounded-lg border border-rose-500/30 bg-rose-950/20 text-rose-300 hover:bg-rose-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5"
-                  title="Test empty answer handling (0 marks awarded)"
-                >
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Skip / Submit Empty (0 Marks)
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserAnswer("I do not know the answer to this question.");
-                    submitAnswer("I do not know the answer to this question.");
-                  }}
-                  disabled={submitting}
-                  className="px-3.5 py-2 rounded-lg border border-amber-500/30 bg-amber-950/20 text-amber-300 hover:bg-amber-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5"
-                  title="Submit 'I don't know' to record weakness in Career Twin"
-                >
-                  "I Don't Know"
-                </button>
+          {/* Active Interview Content: Two-Column Layout */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left 2 Cols: Question & Answer Workspace */}
+            <div className="lg:col-span-2 rounded-xl border border-white/10 bg-slate-900/70 p-6 shadow-xl backdrop-blur-md space-y-5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                  Topic: {currentQuestion.topic || setupForm.topic}
+                </span>
+                <span className="text-xs px-2.5 py-1 rounded bg-slate-950 text-cyan-300 font-mono border border-cyan-500/20">
+                  Target Response Time: {currentQuestion.expectedDuration || 90}s
+                </span>
               </div>
 
-              <button
-                onClick={() => submitAnswer()}
-                disabled={submitting}
-                className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold hover:from-cyan-400 hover:to-blue-500 shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    AI Analyzing Answer...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Submit Answer
-                  </>
+              <div className="text-xl font-semibold text-white leading-relaxed">
+                {currentQuestion.question}
+              </div>
+
+              {/* STT Warning if confidence is low */}
+              {audioWarning && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-center gap-2.5">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                  <span>{audioWarning} You can also type or edit your response directly in the box below.</span>
+                </div>
+              )}
+
+              {/* Answer Input Area & Voice Controls */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Your Answer / Diagnostic Explanation:
+                  </label>
+                  
+                  {/* Voice Recording Control */}
+                  <div className="flex items-center gap-2">
+                    {isRecording && (
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-mono">
+                        <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
+                        Live STT ({audioVolume}%)
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={toggleVoiceRecording}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border ${
+                        isRecording
+                          ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
+                          : 'bg-slate-800 text-cyan-300 border-cyan-500/30 hover:bg-slate-700'
+                      }`}
+                    >
+                      {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      {isRecording ? 'Stop Recording' : 'Speak Answer (STT)'}
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  placeholder="Speak via microphone or type your structured explanation here. Be thorough with technical principles, methodology, and problem-solving reasoning..."
+                  className="w-full h-44 px-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none resize-y text-sm font-sans"
+                />
+
+                {/* Transcription Confidence / Audio Quality indicator */}
+                {wasRecordedAudio && transcriptionConfidence !== null && (
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Volume2 className="h-3 w-3 text-cyan-400" />
+                      Speech Recognition Confidence: <strong className="text-white">{Math.round(transcriptionConfidence * 100)}%</strong>
+                    </span>
+                    <span className="text-emerald-400">Domain technical vocabulary auto-aligned</span>
+                  </div>
                 )}
-              </button>
+              </div>
+
+              {/* Submission Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Submit empty answer? Empty answers strictly receive 0 marks across all 5 competencies.")) {
+                        submitAnswer('');
+                      }
+                    }}
+                    disabled={submitting}
+                    className="px-3.5 py-2 rounded-lg border border-rose-500/30 bg-rose-950/20 text-rose-300 hover:bg-rose-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                    title="Test empty answer handling (0 marks awarded)"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Skip / Submit Empty (0 Marks)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserAnswer("I do not know the answer to this question.");
+                      submitAnswer("I do not know the answer to this question.");
+                    }}
+                    disabled={submitting}
+                    className="px-3.5 py-2 rounded-lg border border-amber-500/30 bg-amber-950/20 text-amber-300 hover:bg-amber-900/40 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                    title="Submit 'I don't know' to record weakness in Career Twin"
+                  >
+                    "I Don't Know"
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => submitAnswer()}
+                  disabled={submitting}
+                  className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold hover:from-cyan-400 hover:to-blue-500 shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      AI Analyzing Answer...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Submit Answer
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Right 1 Col: Video Proctoring & Telemetry Panel */}
+            <div className="space-y-4">
+              {/* Webcam Card */}
+              <div className="rounded-xl border border-white/10 bg-slate-900/70 p-4 shadow-xl backdrop-blur-md">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-cyan-400" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Engagement Proctor</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleCamera}
+                    className="text-[11px] px-2 py-1 rounded bg-slate-950 text-slate-300 border border-white/10 hover:text-white transition flex items-center gap-1"
+                  >
+                    {cameraActive ? <Video className="h-3 w-3 text-emerald-400" /> : <VideoOff className="h-3 w-3 text-slate-500" />}
+                    {cameraActive ? 'Camera On' : 'Audio Only'}
+                  </button>
+                </div>
+
+                <div className="relative overflow-hidden rounded-lg bg-slate-950 aspect-video flex items-center justify-center border border-white/10">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
+                  />
+                  {!cameraActive && (
+                    <div className="text-center p-4">
+                      <VideoOff className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-xs text-slate-400">Audio-Only Fallback Active</p>
+                      <button
+                        onClick={toggleCamera}
+                        className="mt-2 text-[11px] px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold"
+                      >
+                        Enable Webcam
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Live Status Overlay on Video */}
+                  {cameraActive && (
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-950/80 backdrop-blur-sm text-[10px] border border-white/10 text-white font-mono">
+                      <span className={`h-1.5 w-1.5 rounded-full ${visualMetrics.faceDetected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                      {visualMetrics.faceDetected ? 'FACE TRACKED' : 'ALIGNING FACE'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Telemetry Metrics */}
+                <div className="mt-4 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between p-2 rounded bg-slate-950/60 border border-white/5">
+                    <span className="text-slate-400">Camera-Facing Ratio</span>
+                    <span className="font-mono font-semibold text-cyan-300">
+                      {visualMetrics.cameraFacingPercentage}%
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded bg-slate-950/60 border border-white/5">
+                    <span className="text-slate-400">Engagement Status</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                      visualMetrics.behaviorStatus === 'NORMAL' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                      visualMetrics.behaviorStatus === 'LOOKING_AWAY_FREQUENTLY' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                      'bg-slate-800 text-slate-300 border-white/10'
+                    }`}>
+                      {visualMetrics.behaviorStatus === 'NORMAL' ? 'Optimal' :
+                       visualMetrics.behaviorStatus === 'LOOKING_AWAY_FREQUENTLY' ? 'Looking Away' :
+                       visualMetrics.behaviorStatus === 'AUDIO_ONLY_FALLBACK' ? 'Audio Only' : 'Checking'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded bg-slate-950/60 border border-white/5">
+                    <span className="text-slate-400">Multiple Face Check</span>
+                    <span className="font-mono text-slate-300">
+                      {visualMetrics.multipleFacesDetected ? 'Multiple Detected' : 'Single Candidate'}
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 pt-1">
+                    Visual telemetry provides engagement signal context. Your technical evaluation is derived from your spoken/written solutions.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -645,10 +911,10 @@ const DynamicInterviewPage = () => {
               <div className={`text-3xl font-extrabold ${currentOverallScore >= 75 ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {currentOverallScore}%
               </div>
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                isEligibleForCertificate ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              <span className={`text-[11px] font-bold px-3 py-1 rounded-full border tracking-wide uppercase ${
+                isEligibleForCertificate ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
               }`}>
-                {isEligibleForCertificate ? 'Certificate Qualified (>= 75%)' : 'Needs Practice (< 75%)'}
+                {isEligibleForCertificate ? 'PASS (>= 75/100)' : 'FAIL (< 75/100)'}
               </span>
             </div>
           </div>

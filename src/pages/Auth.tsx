@@ -5,17 +5,18 @@ import { motion } from 'framer-motion';
 import SectionHeader from '../components/SectionHeader';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
-import { roleHome } from '../lib/rbac';
+import { roleHome, normalizeRole } from '../lib/rbac';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 const Auth = () => {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password' | 'admin_otp'>('login');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'student' | 'admin'>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,23 +60,27 @@ const Auth = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!response.token) {
-        throw new Error(response.message || 'Authentication failed.');
+      const token = response.token || response.access_token;
+      const refreshToken = response.refreshToken || response.refresh_token;
+
+      if (!token) {
+        throw new Error(response.message || response.detail || 'Authentication failed.');
       }
 
+      const userObj = response.user || response;
       login(
         { 
-          _id: response._id, 
-          name: response.name, 
-          email: response.email, 
-          role: response.role, 
-          status: response.status, 
-          avatarUrl: response.avatarUrl 
+          _id: userObj._id || userObj.id || 'social-user', 
+          name: userObj.name || socialUser.name, 
+          email: userObj.email || socialUser.email, 
+          role: userObj.role || role, 
+          status: userObj.status || 'ACTIVE', 
+          avatarUrl: userObj.avatarUrl || socialUser.avatarUrl 
         }, 
-        response.token, 
-        response.refreshToken
+        token, 
+        refreshToken
       );
-      navigateToRole(response.role);
+      navigateToRole(userObj.role || role);
     } catch (err: any) {
       setError(err?.message || 'Unable to authenticate with social provider.');
     } finally {
@@ -90,6 +95,32 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      if (mode === 'admin_otp') {
+        const verifyRes = await apiRequest<any>('/auth/admin/verify', {
+          method: 'POST',
+          body: JSON.stringify({ email: (adminEmail || email).trim().toLowerCase(), otp: otp.trim() }),
+        });
+
+        const token = verifyRes.access_token || verifyRes.token;
+        const adminData = verifyRes.admin || verifyRes.user || {};
+        const adminRole = normalizeRole(adminData.role || 'ADMIN', adminData.email || email);
+
+        login(
+          {
+            _id: adminData.id || adminData._id || 'admin-id',
+            name: adminData.name || adminData.email?.split('@')[0] || 'Administrator',
+            email: adminData.email || (adminEmail || email).trim(),
+            role: adminRole,
+            status: 'ACTIVE',
+            avatarUrl: adminData.avatarUrl,
+          },
+          token
+        );
+
+        navigateToRole(adminRole);
+        return;
+      }
+
       if (mode === 'change_temp_password') {
         const response = await apiRequest<any>('/auth/change-temp-password', {
           method: 'POST',
@@ -115,14 +146,40 @@ const Auth = () => {
       }
 
       if (mode === 'login') {
-        const backendRes = await apiRequest<any>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email: email.trim(), password }),
-        });
+        let backendRes: any = null;
+        try {
+          backendRes = await apiRequest<any>('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email: email.trim(), password }),
+          });
+        } catch (loginErr: any) {
+          const errMsg = loginErr?.message || '';
+          // If backend identifies this as an administrator account requiring admin login
+          if (errMsg.includes('administrator') || errMsg.includes('Admin Portal')) {
+            try {
+              const adminRes = await apiRequest<any>('/auth/admin/login', {
+                method: 'POST',
+                body: JSON.stringify({ email: email.trim(), password }),
+              });
+
+              if (adminRes.requires_otp) {
+                setAdminEmail(adminRes.email || email.trim());
+                setMode('admin_otp');
+                setOtp('');
+                setMessage(adminRes.message || 'Security verification code sent to your email. Enter the 6-digit OTP below.');
+                setLoading(false);
+                return;
+              }
+            } catch (adminErr: any) {
+              throw new Error(adminErr?.message || errMsg);
+            }
+          }
+          throw loginErr;
+        }
 
         if (backendRes.requiresPasswordChange) {
-          setTempToken(backendRes.token);
-          setTempRefreshToken(backendRes.refreshToken ?? null);
+          setTempToken(backendRes.token || backendRes.access_token);
+          setTempRefreshToken(backendRes.refreshToken ?? backendRes.refresh_token ?? null);
           setMode('change_temp_password');
           setNewPassword('');
           setMessage('Temporary password detected. Please choose a new secure password.');
@@ -130,19 +187,23 @@ const Auth = () => {
         }
 
         const userObj = backendRes.user || backendRes;
+        const token = backendRes.token || backendRes.access_token;
+        const refreshToken = backendRes.refreshToken || backendRes.refresh_token;
+        const resolvedRole = normalizeRole(userObj.role, userObj.email || email.trim());
+
         login(
           {
             _id: userObj.id || userObj._id || 'user-id',
             name: userObj.name || email,
             email: userObj.email || email,
-            role: userObj.role || 'student',
+            role: resolvedRole,
             status: userObj.status || 'ACTIVE',
             avatarUrl: userObj.avatarUrl,
           },
-          backendRes.token,
-          backendRes.refreshToken
+          token,
+          refreshToken
         );
-        navigateToRole(userObj.role || 'student');
+        navigateToRole(resolvedRole);
         return;
       } else if (mode === 'register') {
         const response = await apiRequest<any>('/auth/register', {
@@ -150,26 +211,31 @@ const Auth = () => {
           body: JSON.stringify({ name, email, password, role }),
         });
 
-        if (!response.token) {
-          setMessage(response.message || 'Account request received. Please wait for approval before signing in.');
+        const token = response.token || response.access_token;
+        const refreshToken = response.refreshToken || response.refresh_token;
+
+        if (!token) {
+          setMessage(response.message || response.detail || 'Registration successful. Please sign in.');
           setMode('login');
           setPassword('');
           return;
         }
 
+        const userObj = response.user || response;
+        const resolvedRole = normalizeRole(userObj.role || role, userObj.email || email.trim());
         login(
           {
-            _id: response._id,
-            name: response.name,
-            email: response.email,
-            role: response.role,
-            status: response.status,
-            avatarUrl: response.avatarUrl,
+            _id: userObj.id || userObj._id || 'user-id',
+            name: userObj.name || name,
+            email: userObj.email || email,
+            role: resolvedRole,
+            status: userObj.status || 'ACTIVE',
+            avatarUrl: userObj.avatarUrl,
           },
-          response.token,
-          response.refreshToken
+          token,
+          refreshToken
         );
-        navigateToRole(response.role);
+        navigateToRole(resolvedRole);
       } else if (mode === 'forgot') {
         const res = await apiRequest<any>('/auth/forgot-password', {
           method: 'POST',
@@ -211,17 +277,17 @@ const Auth = () => {
         <div className="absolute -left-20 -top-20 -z-10 h-64 w-64 rounded-full bg-cyan-500/10 blur-[80px] animate-pulse" />
         <motion.div variants={itemVariants}>
           <SectionHeader
-            eyebrow="Authentication"
-            title="Sign in to your specific role portal"
-            description="Access customized dashboards for Main Admin, Admin, HR, and Student users with live backend authentication."
+            eyebrow="Unified Authentication"
+            title="Single portal for all roles and accounts"
+            description="Sign in securely as a Student, HR Recruiter, Admin, Support Team, or Super Admin with instant role-based redirection."
           />
         </motion.div>
 
         <motion.div className="mt-10 grid gap-5" variants={containerVariants}>
           {[
-            { icon: ShieldCheck, title: 'Role-based access', text: 'Auto-redirects to Student, HR, Admin, or Main Admin portals.' },
-            { icon: Mail, title: 'Secure Verification', text: 'Email OTP registration and profile verification.' },
-            { icon: KeyRound, title: 'Live backend auth', text: 'Login and registration use real Node API endpoints.' },
+            { icon: ShieldCheck, title: 'Single Login for All Roles', text: 'One login form supports Student, HR, Admin, Support Team, and Main Admin.' },
+            { icon: Mail, title: 'Secure Multi-Factor Auth', text: 'Two-step verification for administrative accounts and OTP password recovery.' },
+            { icon: KeyRound, title: 'Instant Role Routing', text: 'Automatically redirects to your specialized dashboard upon successful authentication.' },
           ].map((item) => (
             <motion.article
               key={item.title}
@@ -253,26 +319,27 @@ const Auth = () => {
         <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/[0.7] p-8 backdrop-blur-xl shadow-2xl">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-6">
               <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 shadow-lg shadow-cyan-500/20">
                 <Sparkles className="h-6 w-6 text-slate-950" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">Welcome back</h2>
-                <p className="text-sm text-slate-400">Use your account to access live student, HR, and admin screens.</p>
+                <p className="text-sm text-slate-400">Sign in to your account to access your workspace.</p>
               </div>
             </div>
 
-            {/* Testing Mode Banner */}
-            <div className="mb-6 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 text-xs text-cyan-300 flex items-start gap-2.5">
-              <Sparkles className="h-4 w-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-white">Controlled Testing Mode:</span> Candidate personas can log in using either their assigned Email or Test User ID (e.g. <code className="text-cyan-200 font-mono">TEST-MECH-01</code>). Self-registration is restricted by the administrator.
-              </div>
+            {/* Unified Role Badges */}
+            <div className="mb-6 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+              <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-cyan-300 border border-cyan-500/20">Student</span>
+              <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-blue-300 border border-blue-500/20">HR / Recruiter</span>
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-emerald-300 border border-emerald-500/20">Admin</span>
+              <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-purple-300 border border-purple-500/20">Support Team</span>
+              <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-amber-300 border border-amber-500/20">Main Admin</span>
             </div>
 
             <form className="grid gap-5" onSubmit={handleSubmit}>
-              {mode !== 'change_temp_password' && (
+              {mode !== 'change_temp_password' && mode !== 'admin_otp' && (
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -303,7 +370,7 @@ const Auth = () => {
                   <GoogleLoginButton onSuccess={(user) => navigateToRole(user.role)} onFailure={(err) => setError(err)} />
                   <div className="relative my-2 text-center">
                     <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-white/5" style={{ transform: 'translateY(-50%)' }} />
-                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or continue with email</span>
+                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or continue with credentials</span>
                   </div>
                 </>
               )}
@@ -321,7 +388,7 @@ const Auth = () => {
                 </label>
               )}
 
-              {mode !== 'change_temp_password' && (
+              {mode !== 'change_temp_password' && mode !== 'admin_otp' && (
                 <label className="grid gap-2 text-sm font-medium text-slate-300">
                   {mode === 'login' ? 'Email Address or Test User ID' : 'Email Address'}
                   <input
@@ -347,6 +414,30 @@ const Auth = () => {
                     required
                   />
                 </label>
+              )}
+
+              {mode === 'admin_otp' && (
+                <div className="grid gap-4">
+                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-xs text-cyan-200">
+                    <p className="font-semibold text-white mb-1">Administrator Two-Step Verification</p>
+                    <p>Enter the 6-digit security code sent to <span className="font-mono text-cyan-300 font-bold">{adminEmail || email}</span>.</p>
+                    <p className="text-[11px] text-slate-400 mt-2">Check your email inbox or spam folder for the one-time security code.</p>
+                  </div>
+
+                  <label className="grid gap-2 text-sm font-medium text-slate-300">
+                    6-Digit Security Code
+                    <input
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="h-12 text-center tracking-[0.4em] text-lg font-mono rounded-lg border-white/10 bg-slate-950/50 px-4 text-cyan-400 placeholder-slate-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      type="text"
+                      placeholder="••••••"
+                      maxLength={6}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                </div>
               )}
 
               {mode === 'reset' && (
@@ -433,21 +524,34 @@ const Auth = () => {
                   <span className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                   <span className="relative z-10 flex items-center gap-2">
                     <LogIn className="h-5 w-5 transition-transform group-hover:scale-110" />
-                    {loading ? 'Processing...' : mode === 'register' ? 'Create Account' : mode === 'forgot' ? 'Send OTP' : mode === 'reset' ? 'Reset Password' : mode === 'change_temp_password' ? 'Update Password' : 'Sign In'}
+                    {loading
+                      ? 'Processing...'
+                      : mode === 'admin_otp'
+                      ? 'Verify & Sign In'
+                      : mode === 'register'
+                      ? 'Create Account'
+                      : mode === 'forgot'
+                      ? 'Send OTP'
+                      : mode === 'reset'
+                      ? 'Reset Password'
+                      : mode === 'change_temp_password'
+                      ? 'Update Password'
+                      : 'Sign In'}
                   </span>
                 </motion.button>
 
-                {(mode === 'forgot' || mode === 'reset') && (
+                {(mode === 'forgot' || mode === 'reset' || mode === 'admin_otp') && (
                   <button
                     type="button"
                     onClick={() => {
                       setMode('login');
                       setError(null);
                       setMessage(null);
+                      setOtp('');
                     }}
                     className="text-left text-sm font-medium text-cyan-300 hover:text-white"
                   >
-                    Back to sign in
+                    ← Back to sign in
                   </button>
                 )}
               </div>

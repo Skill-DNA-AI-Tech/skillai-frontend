@@ -115,7 +115,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
   });
 
   const text = await response.text();
-  const json = text ? JSON.parse(text) : null;
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
 
   if (!response.ok) {
     if (response.status === 401 && retryOnUnauthorized) {
@@ -125,7 +130,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
       }
     }
 
-    const message = json?.message || response.statusText || `API request failed with ${response.status}`;
+    let message = json?.message || json?.detail || json?.error || response.statusText;
+    if (!message && json && typeof json === 'object') {
+      if (Array.isArray(json.detail)) {
+        message = json.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+      }
+    }
+    if (!message) {
+      message = `API request failed with ${response.status}`;
+    }
     throw new Error(message);
   }
 
@@ -167,7 +180,11 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
       errorBody = { error: response.statusText };
     }
 
-    const error = new Error(errorBody?.message || errorBody?.error || response.statusText) as Error & {
+    let errDetail = errorBody?.message || errorBody?.detail || errorBody?.error || response.statusText;
+    if (!errDetail && errorBody && typeof errorBody === 'object' && Array.isArray(errorBody.detail)) {
+      errDetail = errorBody.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+    }
+    const error = new Error(errDetail || `Request failed with status ${response.status}`) as Error & {
       response?: { data: any; status: number };
     };
     error.response = { data: errorBody, status: response.status };

@@ -7,14 +7,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { PageSettingsProvider } from './context/PageSettingsContext';
 import PageAccessWrapper from './components/PageAccessWrapper';
 
-const AdminDashboard = lazy(() => import('./pages/AdminDashboardV2'));
 const Auth = lazy(() => import('./pages/Auth'));
 const CareerTwin = lazy(() => import('./pages/CareerTwin'));
 const Register = lazy(() => import('./pages/Register'));
 const Community = lazy(() => import('./pages/Community'));
 const DynamicInterviewPage = lazy(() => import('./pages/DynamicInterviewPage'));
 const Home = lazy(() => import('./pages/Home'));
-const InterviewCoach = lazy(() => import('./pages/InterviewCoach'));
 const Jobs = lazy(() => import('./pages/Jobs'));
 const LearningHub = lazy(() => import('./pages/LearningHub'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -53,14 +51,15 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   if (!role) {
     return <Navigate to="/auth" replace />;
   }
-  
-  // Super Admin & Admin have unrestricted access to all platform features and views
-  if (role === 'MAIN_ADMIN' || role === 'ADMIN') {
-    return <>{children}</>;
-  }
 
   if (allowedRoles && !allowedRoles.includes(role)) {
-    return <Navigate to="/" replace />;
+    if (role === 'MAIN_ADMIN' || role === 'ADMIN' || role === 'SUPPORT_TEAM') {
+      return <Navigate to="/admin" replace />;
+    }
+    if (role === 'HR') {
+      return <Navigate to="/hr" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -77,27 +76,28 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Home />} />
-          <Route path="/main-admin" element={<ProtectedRoute allowedRoles={['MAIN_ADMIN', 'ADMIN']}><MainAdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN']}><MainAdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN']}><QuestionBankDashboard /></ProtectedRoute>} />
+          <Route path="/main-admin" element={<ProtectedRoute allowedRoles={['MAIN_ADMIN', 'ADMIN', 'SUPPORT_TEAM']}><MainAdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><MainAdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><QuestionBankDashboard /></ProtectedRoute>} />
           <Route path="/hr" element={<ProtectedRoute allowedRoles={['HR']}><HrDashboard /></ProtectedRoute>} />
           <Route path="/recruiter" element={<Navigate to="/hr" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/scorecards" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentScorecardPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentProfilePage /></ProtectedRoute>} />
-          <Route path="/profile/:id" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN']}><StudentProfilePage /></ProtectedRoute>} />
+          <Route path="/profile/:id" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/career-twin" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="career-twin"><CareerTwin /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/learning" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="learning"><LearningHub /></PageAccessWrapper></ProtectedRoute>} />
-          <Route path="/interview" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><InterviewCoach /></PageAccessWrapper></ProtectedRoute>} />
+          <Route path="/interview" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><DynamicInterviewPage /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/interview/dynamic" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><DynamicInterviewPage /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/report/:id" element={<ReportCard />} />
-          <Route path="/jobs" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN']}><PageAccessWrapper pageId="jobs"><Jobs /></PageAccessWrapper></ProtectedRoute>} />
-          <Route path="/recruiter/report/:token" element={<ProtectedRoute allowedRoles={['HR', 'ADMIN', 'MAIN_ADMIN']}><ReportCard /></ProtectedRoute>} />
+          <Route path="/jobs" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><PageAccessWrapper pageId="jobs"><Jobs /></PageAccessWrapper></ProtectedRoute>} />
+          <Route path="/recruiter/report/:token" element={<ProtectedRoute allowedRoles={['HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><ReportCard /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><PageAccessWrapper pageId="community"><Community /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/certificates" element={<ProtectedRoute allowedRoles={['STUDENT']}><CertificateManagementPage /></ProtectedRoute>} />
-          <Route path="/certificate/:certificateId" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN']}><CertificatePage /></ProtectedRoute>} />
+          <Route path="/certificate/:certificateId" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><CertificatePage /></ProtectedRoute>} />
           <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
           <Route path="/certificate/verify/:certificateId" element={<CertificateVerifyPage />} />
+          <Route path="/verify/:certificateId" element={<CertificateVerifyPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<NotFound />} />

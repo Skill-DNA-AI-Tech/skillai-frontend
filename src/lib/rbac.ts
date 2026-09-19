@@ -50,7 +50,7 @@ export const roleLabel = (role?: string | null) => {
 export const roleHome = (role?: string | null) => {
   const normalized = normalizeRole(role);
   if (normalized === 'MAIN_ADMIN') return '/main-admin';
-  if (normalized === 'ADMIN') return '/admin';
-  if (normalized === 'HR') return '/hr';
+  if (normalized === 'ADMIN' || normalized === 'SUPPORT_TEAM') return '/admin';
+  if (normalized === 'HR' || normalized === 'RECRUITER') return '/hr';
   return '/dashboard';
 };
