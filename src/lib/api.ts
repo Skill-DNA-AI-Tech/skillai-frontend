@@ -3,7 +3,7 @@ const AUTHORITATIVE_EXPRESS_URL = 'https://skilldna-backend.onrender.com/api';
 
 export const getApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  if (envUrl) {
+  if (envUrl && !envUrl.includes('skilldna-backend.onrender.com')) {
     return envUrl.replace(/\/+$/, '');
   }
   // Authoritative Render Backend for production hosting
@@ -16,7 +16,7 @@ export const getApiBaseUrl = (): string => {
 
 export const getAuthApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_AUTH_API_URL || '').trim();
-  if (envUrl) {
+  if (envUrl && !envUrl.includes('skilldna-backend.onrender.com')) {
     return envUrl.replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -161,12 +161,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
     }
   }
 
-  // If primary returned 404, automatically retry on alternate backend!
-  if (response.status === 404) {
-    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
-    if (altBase !== baseUrl) {
+  // If primary returned 404 or 500, automatically retry on authoritative backend!
+  if (response.status === 404 || response.status === 500) {
+    if (baseUrl !== AUTHORITATIVE_FASTAPI_URL) {
       try {
-        const altResponse = await fetch(`${altBase}${cleanPath}`, {
+        const altResponse = await fetch(`${AUTHORITATIVE_FASTAPI_URL}${cleanPath}`, {
           ...fetchOptions,
           headers,
         });
