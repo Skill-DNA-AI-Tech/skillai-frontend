@@ -1,26 +1,22 @@
-const AUTHORITATIVE_EXPRESS_URL = 'https://skilldna-backend.onrender.com/api';
 const AUTHORITATIVE_FASTAPI_URL = 'https://skillai-backend.onrender.com/api';
+const AUTHORITATIVE_EXPRESS_URL = 'https://skilldna-backend.onrender.com/api';
 
 export const getApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  // CRITICAL ARCHITECTURAL SAFEGUARD:
-  // skillai-backend.onrender.com is the FastAPI authentication microservice ONLY.
-  // Under NO circumstances may business/admin API routes be dispatched to FastAPI!
-  // If an environment variable mistakenly set VITE_API_BASE_URL to skillai-backend, override it.
-  if (envUrl && !envUrl.includes('skillai-backend.onrender.com')) {
+  if (envUrl) {
     return envUrl.replace(/\/+$/, '');
   }
-  // Fallback to Authoritative Express Backend for remote/production hosting
+  // Authoritative Render Backend for production hosting
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return AUTHORITATIVE_EXPRESS_URL;
+    return AUTHORITATIVE_FASTAPI_URL;
   }
-  // Local fallback for dev server on port 5000
-  return 'http://localhost:5000/api';
+  // Local fallback
+  return 'http://localhost:8001/api';
 };
 
 export const getAuthApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_AUTH_API_URL || '').trim();
-  if (envUrl && !envUrl.includes('skilldna-backend.onrender.com')) {
+  if (envUrl) {
     return envUrl.replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -32,19 +28,7 @@ export const getAuthApiBaseUrl = (): string => {
 export const API_BASE_URL = getApiBaseUrl();
 export const AUTH_API_BASE_URL = getAuthApiBaseUrl();
 
-export const getBaseUrlForPath = (path: string): string => {
-  const clean = normalizeApiPath(path);
-  // Dedicated FastAPI Authentication Microservice endpoints ONLY
-  if (
-    clean.startsWith('/auth/admin/login') ||
-    clean.startsWith('/auth/admin/verify') ||
-    clean.startsWith('/auth/admin/me') ||
-    clean.startsWith('/auth/google') ||
-    clean.startsWith('/auth/verify-email')
-  ) {
-    return getAuthApiBaseUrl();
-  }
-  // All business logic, admin operations, and application features route to Express Application Backend
+export const getBaseUrlForPath = (_path: string): string => {
   return getApiBaseUrl();
 };
 
@@ -166,7 +150,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
     });
   } catch (netErr) {
     // If primary network request fails, failover to alternate backend immediately
-    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
     try {
       response = await fetch(`${altBase}${cleanPath}`, {
         ...fetchOptions,
@@ -179,7 +163,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
 
   // If primary returned 404, automatically retry on alternate backend!
   if (response.status === 404) {
-    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
     if (altBase !== baseUrl) {
       try {
         const altResponse = await fetch(`${altBase}${cleanPath}`, {
@@ -208,6 +192,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
       const refreshedToken = await refreshAccessToken();
       if (refreshedToken) {
         return apiRequest<T>(path, { ...options, token: refreshedToken }, false);
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {}
+        if (window.location.pathname !== '/' && window.location.pathname !== '/auth') {
+          window.location.href = '/';
+          return {} as T;
+        }
       }
     }
 
@@ -256,7 +249,7 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
       headers,
     });
   } catch (netErr) {
-    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
     try {
       response = await fetch(`${altBase}${cleanPath}`, {
         ...fetchOptions,
@@ -270,7 +263,7 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
 
   // If primary returned 404, automatically retry on alternate backend!
   if (response.status === 404) {
-    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
     if (altBase !== baseUrl) {
       try {
         const altResponse = await fetch(`${altBase}${cleanPath}`, {
@@ -292,6 +285,15 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
       const refreshedToken = await refreshAccessToken();
       if (refreshedToken) {
         return requestWithData<T>(path, { ...config, token: refreshedToken }, method, false);
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {}
+        if (window.location.pathname !== '/' && window.location.pathname !== '/auth') {
+          window.location.href = '/';
+          return { data: {} as T };
+        }
       }
     }
 
