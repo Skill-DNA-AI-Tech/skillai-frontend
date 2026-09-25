@@ -1,7 +1,6 @@
-/// <reference types="vite/client" />
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../lib/api';
+import { getAuthApiBaseUrl } from '../lib/api';
 import { AlertCircle } from 'lucide-react';
 
 interface GoogleLoginButtonProps {
@@ -91,7 +90,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 
     try {
       // 5. Send ID Token to backend for verification
-      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+      const res = await fetch(`${getAuthApiBaseUrl()}/auth/google`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

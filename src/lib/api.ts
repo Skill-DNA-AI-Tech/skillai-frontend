@@ -1,21 +1,30 @@
-export const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+const AUTHORITATIVE_EXPRESS_URL = 'https://skilldna-backend.onrender.com/api';
+const AUTHORITATIVE_FASTAPI_URL = 'https://skillai-backend.onrender.com/api';
+
+export const getApiBaseUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  // CRITICAL ARCHITECTURAL SAFEGUARD:
+  // skillai-backend.onrender.com is the FastAPI authentication microservice ONLY.
+  // Under NO circumstances may business/admin API routes be dispatched to FastAPI!
+  // If an environment variable mistakenly set VITE_API_BASE_URL to skillai-backend, override it.
+  if (envUrl && !envUrl.includes('skillai-backend.onrender.com')) {
+    return envUrl.replace(/\/+$/, '');
   }
-  // Fallback to Authoritative Application Backend for remote hosting
+  // Fallback to Authoritative Express Backend for remote/production hosting
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://skilldna-backend.onrender.com/api';
+    return AUTHORITATIVE_EXPRESS_URL;
   }
   // Local fallback for dev server on port 5000
   return 'http://localhost:5000/api';
 };
 
-export const getAuthApiBaseUrl = () => {
-  if (import.meta.env.VITE_AUTH_API_URL) {
-    return import.meta.env.VITE_AUTH_API_URL;
+export const getAuthApiBaseUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_AUTH_API_URL || '').trim();
+  if (envUrl && !envUrl.includes('skilldna-backend.onrender.com')) {
+    return envUrl.replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://skillai-backend.onrender.com/api';
+    return AUTHORITATIVE_FASTAPI_URL;
   }
   return 'http://localhost:8001/api';
 };
@@ -25,7 +34,7 @@ export const AUTH_API_BASE_URL = getAuthApiBaseUrl();
 
 export const getBaseUrlForPath = (path: string): string => {
   const clean = normalizeApiPath(path);
-  // Dedicated FastAPI Authentication Microservice endpoints
+  // Dedicated FastAPI Authentication Microservice endpoints ONLY
   if (
     clean.startsWith('/auth/admin/login') ||
     clean.startsWith('/auth/admin/verify') ||
@@ -33,10 +42,10 @@ export const getBaseUrlForPath = (path: string): string => {
     clean.startsWith('/auth/google') ||
     clean.startsWith('/auth/verify-email')
   ) {
-    return AUTH_API_BASE_URL;
+    return getAuthApiBaseUrl();
   }
-  // All business logic, admin operations, and application features route to Authoritative Backend
-  return API_BASE_URL;
+  // All business logic, admin operations, and application features route to Express Application Backend
+  return getApiBaseUrl();
 };
 
 export const formatApiError = (err: any): string => {
