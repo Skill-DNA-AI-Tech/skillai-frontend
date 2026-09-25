@@ -68,10 +68,18 @@ export const readStoredToken = () => {
     const auth = localStorage.getItem(STORAGE_KEY);
     if (auth) {
       const parsed = JSON.parse(auth);
-      return parsed.token as string | undefined;
+      if (parsed?.token) return parsed.token as string;
+      if (parsed?.access_token) return parsed.access_token as string;
     }
   } catch {
     // Silently ignore parsing errors
+  }
+
+  try {
+    const direct = localStorage.getItem('token') || localStorage.getItem('admin_token') || localStorage.getItem('admin_backup_token') || localStorage.getItem('access_token');
+    if (direct) return direct;
+  } catch {
+    // Ignore
   }
 
   return undefined;
