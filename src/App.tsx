@@ -1,5 +1,5 @@
 // Trigger redeployment for Cloudflare configuration updates
-import { lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import AppShell from './components/AppShell';
@@ -41,6 +41,50 @@ const RouteFallback = () => (
   </motion.div>
 );
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('SkillDNA UI ErrorBoundary caught an unhandled error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+            <span className="text-xl font-bold tracking-wider">SkillDNA</span>
+          </div>
+          <h2 className="text-xl font-bold">Session Restored</h2>
+          <p className="mt-2 text-sm text-slate-400">Taking you back to the home portal...</p>
+          <a
+            href="/"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-6 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 hover:opacity-90 transition-all"
+          >
+            Return Home
+          </a>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { role, isLoading } = useAuth();
   
@@ -49,7 +93,8 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   }
 
   if (!role) {
-    return <Navigate to="/auth" replace />;
+    // If not authenticated or on refresh without session, cleanly return home
+    return <Navigate to="/" replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(role)) {
@@ -100,7 +145,7 @@ const AnimatedRoutes = () => {
           <Route path="/verify/:certificateId" element={<CertificateVerifyPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/register" element={<Register />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </AnimatePresence>
@@ -109,13 +154,15 @@ const AnimatedRoutes = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <PageSettingsProvider>
-        <Suspense fallback={<RouteFallback />}>
-          <AnimatedRoutes />
-        </Suspense>
-      </PageSettingsProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <PageSettingsProvider>
+          <Suspense fallback={<RouteFallback />}>
+            <AnimatedRoutes />
+          </Suspense>
+        </PageSettingsProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -158,10 +158,42 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
   const method = (options.method || 'GET').toUpperCase();
 
   const { token: _token, ...fetchOptions } = options;
-  const response = await fetch(`${baseUrl}${cleanPath}`, {
-    ...fetchOptions,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${cleanPath}`, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch (netErr) {
+    // If primary network request fails, failover to alternate backend immediately
+    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    try {
+      response = await fetch(`${altBase}${cleanPath}`, {
+        ...fetchOptions,
+        headers,
+      });
+    } catch {
+      throw netErr;
+    }
+  }
+
+  // If primary returned 404, automatically retry on alternate backend!
+  if (response.status === 404) {
+    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    if (altBase !== baseUrl) {
+      try {
+        const altResponse = await fetch(`${altBase}${cleanPath}`, {
+          ...fetchOptions,
+          headers,
+        });
+        if (altResponse.ok) {
+          response = altResponse;
+        }
+      } catch {
+        // preserve original response
+      }
+    }
+  }
 
   const text = await response.text();
   let json: any = null;
@@ -216,11 +248,44 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
   const httpMethod = method.toUpperCase();
 
   const { token: _token, responseType, ...fetchOptions } = config;
-  const response = await fetch(`${baseUrl}${cleanPath}`, {
-    ...fetchOptions,
-    method,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${cleanPath}`, {
+      ...fetchOptions,
+      method,
+      headers,
+    });
+  } catch (netErr) {
+    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    try {
+      response = await fetch(`${altBase}${cleanPath}`, {
+        ...fetchOptions,
+        method,
+        headers,
+      });
+    } catch {
+      throw netErr;
+    }
+  }
+
+  // If primary returned 404, automatically retry on alternate backend!
+  if (response.status === 404) {
+    const altBase = baseUrl.includes('skilldna-backend') ? AUTHORITATIVE_FASTAPI_URL : AUTHORITATIVE_EXPRESS_URL;
+    if (altBase !== baseUrl) {
+      try {
+        const altResponse = await fetch(`${altBase}${cleanPath}`, {
+          ...fetchOptions,
+          method,
+          headers,
+        });
+        if (altResponse.ok) {
+          response = altResponse;
+        }
+      } catch {
+        // preserve original response
+      }
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401 && retryOnUnauthorized) {
