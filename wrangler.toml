@@ -1,4 +1,5 @@
 name = "skillai-frontend"
+main = "src/worker.ts"
 compatibility_date = "2026-06-13"
 
 [assets]
