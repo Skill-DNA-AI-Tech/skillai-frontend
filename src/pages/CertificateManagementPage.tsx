@@ -306,14 +306,14 @@ const CertificateManagementPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <a
-                    href={`/api/certificates/verify/${cert.certificateId}`}
+                  <Link
+                    to={`/verify/${cert.certificateId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full text-center block text-[11px] text-slate-400 hover:text-cyan-300 transition py-1"
+                    className="w-full text-center block text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold transition py-1"
                   >
-                    Public Verification Page &rarr;
-                  </a>
+                    View Public Verification Page &rarr;
+                  </Link>
                 </div>
               </div>
             ))}

@@ -1785,7 +1785,7 @@ const DynamicInterviewPage = () => {
                     </button>
 
                     <Link
-                      to={`/certificate/verify/${claimedCertificate.certificateId}`}
+                      to={`/verify/${claimedCertificate.certificateId}`}
                       className="w-full py-2 rounded-lg border border-white/10 bg-slate-950 text-slate-300 hover:text-white text-xs flex items-center justify-center gap-1.5 transition"
                     >
                       <ExternalLink className="h-3.5 w-3.5 text-cyan-400" />

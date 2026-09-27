@@ -98,7 +98,7 @@ export const CertificateDisplay: React.FC<CertificateDisplayProps> = ({ certific
   };
 
   const copyVerificationLink = () => {
-    const verifyUrl = `${window.location.origin}/certificate/verify/${certificate?.certificateId}`;
+    const verifyUrl = `${window.location.origin}/verify/${certificate?.certificateId}`;
     navigator.clipboard.writeText(verifyUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

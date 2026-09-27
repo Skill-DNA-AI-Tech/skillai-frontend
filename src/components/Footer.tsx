@@ -28,14 +28,15 @@ const Footer = () => {
                 { label: 'Home', url: '/' },
                 { label: 'Dashboard', url: '/dashboard' },
                 { label: 'Jobs', url: '/jobs' },
+                { label: 'Verify Certificate', url: '/verify' },
                 { label: 'Community', url: '/community' },
               ]
             },
             {
-              title: 'Support & Feedback',
+              title: 'Support & Helpdesk',
               links: [
-                { label: 'Help Center', url: 'mailto:support@skilldna.com' },
-                { label: 'Submit Feedback', url: '/feedback' },
+                { label: 'Submit Ticket / Feedback', url: '/feedback' },
+                { label: 'Public Support', url: '/support' },
               ]
             }
           ],

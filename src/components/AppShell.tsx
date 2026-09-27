@@ -1,4 +1,4 @@
-import { Menu, Sparkles, X, LogOut, User, LineChart, Building2, UsersRound, ShieldCheck, FilePlus2, Video, BrainCircuit } from 'lucide-react';
+import { Menu, Sparkles, X, LogOut, User, LineChart, Building2, UsersRound, ShieldCheck, FilePlus2, Video, BrainCircuit, MessageSquareText } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -139,7 +139,7 @@ const AppShell = () => {
                                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
                               >
                                 <User className="h-4 w-4 text-cyan-400" />
-                                Profile
+                                Profile & Career Goals
                               </Link>
                               <Link
                                 to="/dashboard"
@@ -147,7 +147,15 @@ const AppShell = () => {
                                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
                               >
                                 <LineChart className="h-4 w-4 text-cyan-400" />
-                                Student
+                                Student Dashboard
+                              </Link>
+                              <Link
+                                to="/feedback"
+                                onClick={() => setShowDropdown(false)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+                              >
+                                <MessageSquareText className="h-4 w-4 text-cyan-400" />
+                                Help & Support
                               </Link>
                             </>
                           )}
@@ -292,7 +300,7 @@ const AppShell = () => {
                         className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
                       >
                         <User className="h-4 w-4 text-cyan-400" />
-                        Profile
+                        Profile & Career Goals
                       </Link>
                       <Link
                         to="/dashboard"
@@ -300,7 +308,15 @@ const AppShell = () => {
                         className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
                       >
                         <LineChart className="h-4 w-4 text-cyan-400" />
-                        Student
+                        Student Dashboard
+                      </Link>
+                      <Link
+                        to="/feedback"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <MessageSquareText className="h-4 w-4 text-cyan-400" />
+                        Help & Support
                       </Link>
                     </>
                   )}

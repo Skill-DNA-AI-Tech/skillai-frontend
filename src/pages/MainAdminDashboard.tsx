@@ -8,7 +8,8 @@ import SectionHeader from '../components/SectionHeader';
 import { adminAnalytics, contentTypes } from '../data/platform';
 import { apiRequest, getApiBaseUrl, readStoredToken } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { TestUserManager } from '../components/TestUserManager';
+import { UserManagement } from '../components/admin/UserManagement';
+import { AdminHelpdeskPanel } from '../components/admin/AdminHelpdeskPanel';
 import { CareerChangeManagement } from '../components/admin/CareerChangeManagement';
 import { TopicNotesManagement } from '../components/admin/TopicNotesManagement';
 import { StudentAccountManagement } from '../components/admin/StudentAccountManagement';
@@ -200,7 +201,7 @@ const MainAdminDashboard = () => {
   const { user } = useAuth();
   const isMainAdmin = user?.email === 'skilldnaai@ai.com';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'questions' | 'career-changes' | 'topic-notes' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'test-users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'students' | 'questions' | 'career-changes' | 'topic-notes' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'helpdesk'>('overview');
   const [footerData, setFooterData] = useState<FooterData>(defaultFooterData);
 
   // Question Bank State
@@ -868,11 +869,18 @@ const MainAdminDashboard = () => {
               <span>Topic Notes & Curriculum</span>
             </button>
             <button
-              onClick={() => setActiveTab('test-users')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'test-users' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              onClick={() => setActiveTab('users')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'users' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
             >
-              <Sparkles className="h-4 w-4 text-cyan-400" />
-              <span>Pre-Production & Beta Access</span>
+              <Users className="h-4 w-4 text-cyan-400" />
+              <span>User Management</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('helpdesk')}
+              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'helpdesk' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <ShieldAlert className="h-4 w-4 text-cyan-400" />
+              <span>Helpdesk & Support</span>
             </button>
             {isMainAdmin && (
               <button
@@ -946,10 +954,10 @@ const MainAdminDashboard = () => {
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <button
-                      onClick={() => setActiveTab('test-users')}
+                      onClick={() => setActiveTab('users')}
                       className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <Sparkles className="h-4 w-4" /> Pre-Production Users (Beta)
+                      <Users className="h-4 w-4" /> User Management
                     </button>
                     <Link
                       to="/interview/dynamic"
@@ -986,14 +994,14 @@ const MainAdminDashboard = () => {
                   </div>
                   <div className="bg-slate-950/70 border border-white/5 rounded-2xl p-4">
                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                      <span>Test Personas</span>
+                      <span>Platform Users</span>
                       <Users className="h-3.5 w-3.5 text-purple-400" />
                     </p>
                     <div className="flex items-baseline justify-between mt-2">
-                      <span className="text-3xl font-extrabold text-white">{overview?.testUsersCount || 0}</span>
-                      <span className="text-xs font-semibold text-purple-400">Granular Reset</span>
+                      <span className="text-3xl font-extrabold text-white">{overview?.students || overview?.totalUsers || 0}</span>
+                      <span className="text-xs font-semibold text-purple-400">All Roles</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">One-click simulated accounts</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Students, Teachers, HR & Admins</p>
                   </div>
                   <div className="bg-slate-950/70 border border-white/5 rounded-2xl p-4">
                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center justify-between">
@@ -2833,13 +2841,23 @@ const MainAdminDashboard = () => {
             </motion.section>
           )}
 
-          {activeTab === 'test-users' && (
+          {activeTab === 'users' && (
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <TestUserManager />
+              <UserManagement />
+            </motion.section>
+          )}
+
+          {activeTab === 'helpdesk' && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <AdminHelpdeskPanel />
             </motion.section>
           )}
 

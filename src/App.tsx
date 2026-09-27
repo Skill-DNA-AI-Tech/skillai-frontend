@@ -139,9 +139,10 @@ const AnimatedRoutes = () => {
           <Route path="/recruiter/report/:token" element={<ProtectedRoute allowedRoles={['HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><ReportCard /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><PageAccessWrapper pageId="community"><Community /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/certificates" element={<ProtectedRoute allowedRoles={['STUDENT']}><CertificateManagementPage /></ProtectedRoute>} />
-          <Route path="/certificate/:certificateId" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><CertificatePage /></ProtectedRoute>} />
-          <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/support" element={<Feedback />} />
           <Route path="/certificate/verify/:certificateId" element={<CertificateVerifyPage />} />
+          <Route path="/verify" element={<CertificateVerifyPage />} />
           <Route path="/verify/:certificateId" element={<CertificateVerifyPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/register" element={<Register />} />
