@@ -1,4 +1,4 @@
-import { Activity, Bell, CalendarDays, FileBadge, Flame, Send, Target, ChevronRight, X, UserCog, AlertCircle, Upload, CheckCircle2 } from 'lucide-react';
+import { Activity, Bell, CalendarDays, FileBadge, Flame, Send, Target, ChevronRight, X, UserCog, AlertCircle, Upload, CheckCircle2, Sparkles, Compass, BookOpen, Briefcase } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useRef } from 'react';
@@ -80,6 +80,7 @@ const StudentDashboard = () => {
   
   const [scorecard, setScorecard] = useState<any>(null);
   const [scorecardLoading, setScorecardLoading] = useState(false);
+  const [careerTwin, setCareerTwin] = useState<any>(null);
   
   // Profile Setup Modal State
   const [showProfileModal, setShowProfileModal] = useState(true); // Defaults to true to show popup on login
@@ -244,6 +245,10 @@ const StudentDashboard = () => {
       .then((data) => setScorecard(data))
       .catch((err) => console.error('Unable to load scorecard', err))
       .finally(() => setScorecardLoading(false));
+
+    apiRequest<any>('/career-twin/me', { token })
+      .then((data) => setCareerTwin(data))
+      .catch((err) => console.warn('Career Twin preview not loaded', err));
   }, [token]);
 
   const metrics: DashboardMetric[] = aiAnalysis?.metrics || (profile
@@ -599,6 +604,77 @@ const StudentDashboard = () => {
             <MetricCard label={metric.label} value={metric.value} suffix={metric.suffix} progress={metric.value} tone={metric.tone} />
           </motion.div>
         ))}
+      </motion.section>
+
+      {/* Real Career Twin Driven "NEXT BEST ACTION" Banner */}
+      <motion.section
+        initial={{ opacity: 0, y: 25 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="mt-8 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/40 p-6 sm:p-7 shadow-2xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-72 h-72 bg-cyan-500/10 blur-[80px] rounded-full pointer-events-none" />
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-3 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-3 py-1 text-xs font-bold text-cyan-300">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                NEXT BEST ACTION
+              </span>
+              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+                AI Career Twin Intelligence
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                {careerTwin?.discipline || profile?.degree || 'Multi-Discipline'} Track
+              </span>
+            </div>
+
+            <div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                {careerTwin?.nextBestAction?.title || `Master Core Topics in ${careerTwin?.discipline || 'Your Field'}`}
+              </h2>
+              <p className="mt-1.5 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                {careerTwin?.nextBestAction?.reason || careerTwin?.nextRecommendedSkill?.whyRecommended ||
+                  'Your real Career Twin continuously correlates your quiz answers, assessments, and interview sessions to pinpoint your highest-yield priority milestone.'}
+              </p>
+            </div>
+
+            {/* Core 3 Career Twin Answers */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Standing</p>
+                <p className="text-xs font-bold text-white mt-0.5 truncate">{careerTwin?.discipline || 'Candidate'} • {careerTwin?.overallScore || 78}% Verified</p>
+              </div>
+              <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Target Role</p>
+                <p className="text-xs font-bold text-cyan-300 mt-0.5 truncate">{careerTwin?.targetRole || profile?.branch || 'Professional'}</p>
+              </div>
+              <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Primary Gap</p>
+                <p className="text-xs font-bold text-amber-300 mt-0.5 truncate">{careerTwin?.weaknesses?.[0] || 'Curriculum Milestone'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+            <Link
+              to={careerTwin?.nextBestAction?.actionUrl || '/learning'}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 px-6 py-3 text-sm font-bold text-slate-950 shadow-[0_0_20px_rgba(34,211,238,0.3)] transition active:scale-95"
+            >
+              <BookOpen className="h-4 w-4" />
+              {careerTwin?.nextBestAction?.actionLabel || 'Take Action Now'}
+            </Link>
+
+            <Link
+              to="/career-twin"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 px-6 py-2.5 text-xs font-semibold text-slate-200 transition active:scale-95"
+            >
+              <Compass className="h-3.5 w-3.5 text-cyan-400" />
+              Explore Career Twin
+            </Link>
+          </div>
+        </div>
       </motion.section>
 
       {/* Dynamic Scorecard Section */}

@@ -447,7 +447,58 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
   });
 
   // Certificate Template Designer & Audit State
-  const [certAdminSubTab, setCertAdminSubTab] = useState<'designer' | 'all' | 'pending'>('designer');
+  const [certAdminSubTab, setCertAdminSubTab] = useState<'designer' | 'all' | 'pending' | 'watermark'>('designer');
+  const [watermarkSettings, setWatermarkSettings] = useState({
+    watermark_text: 'SKILLDNA AI VERIFIED',
+    font_size: 42,
+    opacity: 0.10,
+    rotation_angle: 45,
+    is_enabled: true,
+    position: 'diagonal',
+    color_hex: '#64748b'
+  });
+  const [watermarkLoading, setWatermarkLoading] = useState(false);
+  const [watermarkSaving, setWatermarkSaving] = useState(false);
+  const [watermarkSavedMsg, setWatermarkSavedMsg] = useState('');
+
+  const fetchWatermarkSettings = async () => {
+    try {
+      setWatermarkLoading(true);
+      const res = await apiRequest<any>('/admin/settings/watermark');
+      if (res) {
+        setWatermarkSettings({
+          watermark_text: res.watermark_text ?? 'SKILLDNA AI VERIFIED',
+          font_size: res.font_size ?? 42,
+          opacity: res.opacity ?? 0.10,
+          rotation_angle: res.rotation_angle ?? 45,
+          is_enabled: res.is_enabled ?? true,
+          position: res.position ?? 'diagonal',
+          color_hex: res.color_hex ?? '#64748b'
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch watermark settings:', err);
+    } finally {
+      setWatermarkLoading(false);
+    }
+  };
+
+  const handleSaveWatermarkSettings = async () => {
+    try {
+      setWatermarkSaving(true);
+      setWatermarkSavedMsg('');
+      await apiRequest('/admin/settings/watermark', {
+        method: 'PUT',
+        body: JSON.stringify(watermarkSettings),
+      });
+      setWatermarkSavedMsg('Watermark configuration saved successfully!');
+      setTimeout(() => setWatermarkSavedMsg(''), 4000);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save watermark settings');
+    } finally {
+      setWatermarkSaving(false);
+    }
+  };
   const [certTemplates, setCertTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -622,6 +673,7 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
       fetchAdminSignature();
       fetchCertTemplates();
       fetchAllCertificates();
+      fetchWatermarkSettings();
     } else if (activeTab === 'page-settings') {
       fetchPageSettings();
     } else if (activeTab === 'feedback') {
@@ -1784,6 +1836,18 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                       <FileClock className="h-3.5 w-3.5" />
                       Pending Approvals ({pendingCertificates.length})
                     </button>
+
+                    <button
+                      onClick={() => setCertAdminSubTab('watermark')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        certAdminSubTab === 'watermark'
+                          ? 'bg-cyan-500 text-slate-950 shadow-md'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <Shield className="h-3.5 w-3.5" />
+                      PDF Watermark Settings
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2299,6 +2363,356 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                       </table>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* SUB-TAB 4: STUDY GUIDE & PDF WATERMARK SETTINGS          */}
+              {/* ========================================================= */}
+              {certAdminSubTab === 'watermark' && (
+                <div className="space-y-6">
+                  {/* Top Info Banner */}
+                  <div className="rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md relative overflow-hidden">
+                    <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-500/10 blur-[60px]" />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                          <Shield className="h-5 w-5 text-cyan-400" />
+                          Official PDF Watermark & Brand Security Authority
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Configure dynamic background watermarks stamped across all generated AI study guides, lesson notes, and interview prep PDF downloads.
+                        </p>
+                      </div>
+                      <button
+                        onClick={fetchWatermarkSettings}
+                        disabled={watermarkLoading}
+                        className="self-start sm:self-auto px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center gap-2 cursor-pointer"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${watermarkLoading ? 'animate-spin text-cyan-400' : ''}`} />
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  {watermarkSavedMsg && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400 text-sm flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>{watermarkSavedMsg}</span>
+                    </motion.div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Controls Column */}
+                    <div className="lg:col-span-6 space-y-5 rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-md">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                        <span className="text-sm font-semibold text-white">Watermark Stamping</span>
+                        <button
+                          type="button"
+                          onClick={() => setWatermarkSettings(prev => ({ ...prev, is_enabled: !prev.is_enabled }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                            watermarkSettings.is_enabled ? 'bg-cyan-500' : 'bg-slate-700'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              watermarkSettings.is_enabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Watermark Text */}
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                          Watermark Stamped Text
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={60}
+                          value={watermarkSettings.watermark_text}
+                          onChange={(e) => setWatermarkSettings(prev => ({ ...prev, watermark_text: e.target.value }))}
+                          placeholder="e.g. SKILLDNA AI VERIFIED"
+                          className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">
+                          Appears repeatedly or diagonally across generated binary PDF downloads.
+                        </p>
+                      </div>
+
+                      {/* Position Selector */}
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                          Watermark Stamping Position
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: 'diagonal', label: 'Diagonal Center (45°)', desc: 'Full page watermark' },
+                            { id: 'center', label: 'Horizontal Center (0°)', desc: 'Centered horizontally' },
+                            { id: 'bottom-right', label: 'Bottom Right', desc: 'Corner authentication' },
+                            { id: 'header-footer', label: 'Header / Footer', desc: 'Margin security banner' },
+                          ].map((pos) => (
+                            <button
+                              key={pos.id}
+                              type="button"
+                              onClick={() => {
+                                setWatermarkSettings(prev => ({
+                                  ...prev,
+                                  position: pos.id,
+                                  rotation_angle: pos.id === 'diagonal' ? 45 : pos.id === 'center' ? 0 : prev.rotation_angle
+                                }));
+                              }}
+                              className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                                watermarkSettings.position === pos.id
+                                  ? 'border-cyan-500/50 bg-cyan-500/10 text-white'
+                                  : 'border-white/5 bg-slate-950/40 text-slate-400 hover:border-white/10 hover:text-slate-200'
+                              }`}
+                            >
+                              <div className="text-xs font-bold">{pos.label}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">{pos.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Opacity Slider */}
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <label className="font-semibold uppercase tracking-wider text-slate-400">
+                            Opacity / Transparency
+                          </label>
+                          <span className="font-mono font-bold text-cyan-400">
+                            {Math.round(watermarkSettings.opacity * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.02"
+                          max="0.30"
+                          step="0.01"
+                          value={watermarkSettings.opacity}
+                          onChange={(e) => setWatermarkSettings(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))}
+                          className="w-full accent-cyan-500 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                          <span>Subtle (2%)</span>
+                          <span>Balanced (10%)</span>
+                          <span>Prominent (30%)</span>
+                        </div>
+                      </div>
+
+                      {/* Font Size & Rotation */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <label className="font-semibold uppercase tracking-wider text-slate-400">Font Size</label>
+                            <span className="font-mono font-bold text-cyan-400">{watermarkSettings.font_size}pt</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="24"
+                            max="72"
+                            step="2"
+                            value={watermarkSettings.font_size}
+                            onChange={(e) => setWatermarkSettings(prev => ({ ...prev, font_size: parseInt(e.target.value, 10) }))}
+                            className="w-full accent-cyan-500 cursor-pointer"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <label className="font-semibold uppercase tracking-wider text-slate-400">Angle</label>
+                            <span className="font-mono font-bold text-cyan-400">{watermarkSettings.rotation_angle}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-90"
+                            max="90"
+                            step="5"
+                            value={watermarkSettings.rotation_angle}
+                            onChange={(e) => setWatermarkSettings(prev => ({ ...prev, rotation_angle: parseInt(e.target.value, 10) }))}
+                            className="w-full accent-cyan-500 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Watermark Color */}
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                          Watermark Color
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={watermarkSettings.color_hex}
+                            onChange={(e) => setWatermarkSettings(prev => ({ ...prev, color_hex: e.target.value }))}
+                            className="h-10 w-14 rounded-lg border border-white/10 bg-slate-950 cursor-pointer p-1"
+                          />
+                          <input
+                            type="text"
+                            value={watermarkSettings.color_hex}
+                            onChange={(e) => setWatermarkSettings(prev => ({ ...prev, color_hex: e.target.value }))}
+                            placeholder="#64748b"
+                            className="w-32 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm font-mono text-white focus:border-cyan-500 focus:outline-none"
+                          />
+                          <div className="flex gap-1.5">
+                            {['#64748b', '#0891b2', '#2563eb', '#9333ea', '#dc2626'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => setWatermarkSettings(prev => ({ ...prev, color_hex: c }))}
+                                style={{ backgroundColor: c }}
+                                className="h-6 w-6 rounded-full border border-white/20 transition hover:scale-110 cursor-pointer"
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save Action */}
+                      <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                        <div className="text-xs text-slate-400">
+                          {watermarkSettings.is_enabled ? (
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Watermark will be stamped on all study PDFs
+                            </span>
+                          ) : (
+                            <span className="text-amber-400 flex items-center gap-1">
+                              <AlertCircle className="h-3.5 w-3.5" />
+                              Watermark is currently disabled
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleSaveWatermarkSettings}
+                          disabled={watermarkSaving}
+                          className="px-6 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 shadow-[0_0_20px_rgba(34,211,238,0.25)] transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          {watermarkSaving ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Save Watermark Settings
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Preview Column */}
+                    <div className="lg:col-span-6 space-y-3">
+                      <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+                        <span className="font-semibold uppercase tracking-wider text-slate-300">
+                          Live PDF Document Mockup
+                        </span>
+                        <span className="text-[11px] font-mono text-cyan-400">
+                          Standard A4 Page (595 × 842 pt)
+                        </span>
+                      </div>
+
+                      {/* Mock A4 Paper Sheet */}
+                      <div className="relative rounded-2xl bg-white text-slate-800 p-8 shadow-2xl overflow-hidden min-h-[520px] border border-slate-200 select-none flex flex-col justify-between">
+                        {/* Background Watermark Element */}
+                        {watermarkSettings.is_enabled && (
+                          <div
+                            className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden z-0"
+                            style={{
+                              transform: watermarkSettings.position === 'diagonal'
+                                ? `rotate(${watermarkSettings.rotation_angle}deg)`
+                                : watermarkSettings.position === 'center'
+                                ? `rotate(0deg)`
+                                : watermarkSettings.position === 'bottom-right'
+                                ? `translate(25%, 35%) rotate(${watermarkSettings.rotation_angle}deg)`
+                                : `rotate(0deg)`,
+                            }}
+                          >
+                            <span
+                              className="font-black tracking-widest uppercase select-none text-center whitespace-nowrap"
+                              style={{
+                                color: watermarkSettings.color_hex,
+                                opacity: watermarkSettings.opacity,
+                                fontSize: `${Math.round(watermarkSettings.font_size * 0.9)}px`,
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {watermarkSettings.watermark_text || 'SKILLDNA AI VERIFIED'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Top Running Header */}
+                        <div className="relative z-10 border-b border-slate-200 pb-3 flex items-center justify-between text-[11px] text-slate-500 font-sans">
+                          <span className="font-bold tracking-wide text-slate-700">SKILLDNA AI • MASTER STUDY GUIDE</span>
+                          <span>CONFIDENTIAL & AUTHENTICATED</span>
+                        </div>
+
+                        {/* Document Content Mock */}
+                        <div className="relative z-10 space-y-4 my-auto py-4 font-serif">
+                          <div>
+                            <span className="text-[10px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                              Foundational Knowledge
+                            </span>
+                            <h2 className="text-xl font-bold text-slate-900 mt-2 font-sans">
+                              Principles of Clinical Pharmacokinetics & Drug Clearance
+                            </h2>
+                            <p className="text-xs text-slate-500 mt-1 font-sans">
+                              Target Field: Medical & Healthcare • Mastery Tier: Foundational
+                            </p>
+                          </div>
+
+                          <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                            <p>
+                              Pharmacokinetics encompasses the processes of absorption, distribution, metabolism, and excretion (ADME) of pharmaceutical compounds within human physiological systems. Understanding clearance metrics is foundational for proper dosage titration.
+                            </p>
+                            <p>
+                              Clearance represents the theoretical volume of blood cleared of drug per unit time. Renal elimination rates depend directly on glomerular filtration rate (GFR) and tubular secretion dynamics.
+                            </p>
+                          </div>
+
+                          {/* Mini Callout Box */}
+                          <div className="bg-slate-50 border-l-4 border-cyan-500 p-3 rounded text-[11px] text-slate-700 font-sans">
+                            <span className="font-bold text-cyan-900 block mb-0.5">Clinical Practice Activity</span>
+                            Calculate creatinine clearance using the Cockcroft-Gault formula for a 65-year-old patient weighing 70kg with serum creatinine of 1.4 mg/dL.
+                          </div>
+
+                          {/* Mini Quiz Box */}
+                          <div className="border border-slate-200 rounded-lg p-3 bg-white text-[11px] space-y-1.5 font-sans">
+                            <span className="font-bold text-slate-800 block">Self-Assessment Diagnostic Check:</span>
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <span className="h-3 w-3 rounded-full border border-slate-300 inline-block" />
+                              <span>First-pass metabolism primarily occurs in the hepatic portal system.</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <span className="h-3 w-3 rounded-full border border-slate-300 inline-block" />
+                              <span>Bioavailability represents the active fraction reaching systemic circulation.</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bottom Running Footer */}
+                        <div className="relative z-10 border-t border-slate-200 pt-3 flex items-center justify-between text-[11px] text-slate-500 font-sans">
+                          <span>Generated for: Alex Taylor • SkillDNA ID: #SKL-99214</span>
+                          <span>Page 1 of 4</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 text-center">
+                        The above document demonstrates text readability across the configured opacity and rotation angle.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </motion.div>

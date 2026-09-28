@@ -3,14 +3,14 @@ import {
   AlertTriangle, Award, BookOpen, MessageSquare, Send, ChevronRight, 
   ChevronDown, RotateCcw, ExternalLink, HelpCircle, Lock, Video, 
   Code, Compass, ArrowRight, CheckCircle, RefreshCw, X, AlertCircle,
-  Bookmark, Copy, Search, Trash2
+  Bookmark, Copy, Search, Trash2, Download
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import SectionHeader from '../components/SectionHeader';
 import ProgressBar from '../components/ProgressBar';
-import { apiRequest } from '../lib/api';
+import { apiRequest, getApiBaseUrl } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 type TabType = 'notes' | 'ai-notes' | 'my-notes' | 'resources' | 'mcq' | 'interview' | 'remediation';
@@ -215,6 +215,88 @@ const LearningHub = () => {
     const score = Math.round((correct / total) * 100);
     setNoteQuizResult({ score, correct, total, passed: score >= 70 });
     setNoteQuizSubmitted(true);
+  };
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadDraftPdf = async () => {
+    if (!generatedNote || !token) return;
+    setDownloadingPdf(true);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/learning/notes/pdf-export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          topic: generatedNote.topic,
+          domain: generatedNote.domain,
+          level: generatedNote.level || aiNoteLevel,
+          summary: generatedNote.summary,
+          detailedNotes: generatedNote.detailedNotes,
+          keyPoints: generatedNote.keyPoints,
+          quickRevision: generatedNote.quickRevision,
+          questions: generatedNote.questions,
+          flashcards: generatedNote.flashcards,
+          quiz: generatedNote.quiz,
+          artifacts: generatedNote.artifacts,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download PDF study guide');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (generatedNote.topic || 'Study_Guide').replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.download = `SkillDNA_${safeName}_StudyGuide.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert('Error downloading PDF: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadSavedPdf = async (note: any) => {
+    if (!note || !token) return;
+    const noteId = note._id || note.id;
+    setDownloadingPdf(true);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/learning/notes/${noteId}/pdf`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download PDF study guide');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (note.topic || 'Study_Guide').replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.download = `SkillDNA_${safeName}_StudyGuide.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert('Error downloading PDF: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   // Load Active Curriculum
@@ -857,6 +939,51 @@ const LearningHub = () => {
               {/* Generated Note View with Artifact Sub-Tabs */}
               {generatedNote && (
                 <div className="space-y-4 pt-2">
+                  {/* Top Action Toolbar */}
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xs font-bold text-white tracking-wide">
+                        {generatedNote.topic}
+                      </span>
+                      <span className="text-[10px] font-mono uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                        {generatedNote.domain || 'General'}
+                      </span>
+                      <span className="text-[10px] font-mono bg-violet-500/15 text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded-full font-semibold">
+                        {generatedNote.level || aiNoteLevel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadDraftPdf}
+                        disabled={downloadingPdf}
+                        className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                        title="Download Professional PDF Study Guide"
+                      >
+                        {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                        <span>{downloadingPdf ? 'Compiling PDF...' : 'Download PDF Study Guide'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveAiNote}
+                        disabled={savingNote}
+                        className="px-3.5 py-1.5 rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      >
+                        {savingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5 text-amber-400" />}
+                        <span>{savingNote ? 'Saving...' : 'Save to Library'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {noteSaveSuccess && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>{noteSaveSuccess}</span>
+                    </div>
+                  )}
+
                   {/* Artifact Subtabs */}
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
                     {[
@@ -884,12 +1011,48 @@ const LearningHub = () => {
 
                   {/* SUBTAB 1: SUMMARY */}
                   {noteActiveSubtab === 'summary' && (
-                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-3">
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Executive Brief</span>
                         <span className="text-xs text-slate-400 font-mono">{generatedNote.topic} • {generatedNote.domain}</span>
                       </div>
                       <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{generatedNote.summary}</p>
+
+                      {/* Learning Objectives Callout */}
+                      {generatedNote.objectives && generatedNote.objectives.length > 0 && (
+                        <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4 space-y-2">
+                          <p className="text-xs font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Module Learning Objectives
+                          </p>
+                          <ul className="space-y-1.5 text-xs text-slate-200">
+                            {generatedNote.objectives.map((obj: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-cyan-400 font-bold">•</span>
+                                <span>{obj}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Prerequisites */}
+                      {generatedNote.prerequisites && generatedNote.prerequisites.length > 0 && (
+                        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <Compass className="w-3.5 h-3.5 text-violet-400" />
+                            Prerequisites & Foundational Assumptions
+                          </p>
+                          <ul className="space-y-1 text-xs text-slate-300">
+                            {generatedNote.prerequisites.map((pr: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-violet-400 font-bold">•</span>
+                                <span>{pr}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1193,15 +1356,25 @@ const LearningHub = () => {
                           </div>
 
                           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                            <button
-                              onClick={() => {
-                                setGeneratedNote(note);
-                                setActiveTab('ai-notes');
-                              }}
-                              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
-                            >
-                              Open & Study <ArrowRight className="w-3 h-3" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setGeneratedNote(note);
+                                  setActiveTab('ai-notes');
+                                }}
+                                className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+                              >
+                                Open & Study <ArrowRight className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDownloadSavedPdf(note)}
+                                disabled={downloadingPdf}
+                                className="text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer bg-slate-800/80 hover:bg-slate-700 px-2 py-0.5 rounded-lg border border-slate-700 transition"
+                                title="Download PDF Study Guide"
+                              >
+                                <Download className="w-3 h-3 text-cyan-400" /> PDF
+                              </button>
+                            </div>
                             <button
                               onClick={() => handleDeleteSavedNote(noteId)}
                               disabled={deletingNoteId === noteId}

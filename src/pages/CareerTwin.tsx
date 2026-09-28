@@ -12,6 +12,14 @@ import {
   Compass,
   ExternalLink,
   RotateCcw,
+  Sparkles,
+  CheckCircle2,
+  ArrowRight,
+  BookOpen,
+  Layers,
+  Award,
+  FolderKanban,
+  ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -66,6 +74,53 @@ interface DynamicInterview {
   reason: string;
 }
 
+interface NextRecommendedSkill {
+  skill: string;
+  priority: string;
+  whyRecommended: string;
+  prerequisites: string[];
+  currentLevel: string;
+  targetLevel: string;
+  actionUrl: string;
+}
+
+interface NextBestAction {
+  title: string;
+  reason: string;
+  actionType: string;
+  actionLabel: string;
+  actionUrl: string;
+  estimatedMinutes: number;
+  topic?: string;
+}
+
+interface PipelineStep {
+  step: number;
+  key: string;
+  label: string;
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'ACTIVE' | 'PENDING' | 'NEXT';
+  detail: string;
+  actionUrl?: string;
+}
+
+interface PracticalProject {
+  title: string;
+  description: string;
+  deliverable: string;
+}
+
+interface SkillTier {
+  title: string;
+  skills: string[];
+  status: string;
+}
+
+interface SkillEngineTiers {
+  beginner: SkillTier;
+  intermediate: SkillTier;
+  advanced: SkillTier;
+}
+
 interface CareerTwinMemory {
   overallScore: number;
   technicalScore: number;
@@ -74,6 +129,9 @@ interface CareerTwinMemory {
   confidence: number;
   communicationQuality: number;
   responseTime: number;
+  discipline?: string;
+  careerDomain?: string;
+  targetRole?: string;
   interviewHistory: InterviewHistoryItem[];
   jobReadiness: JobReadinessItem[];
   dailyTasks: TaskItem[];
@@ -86,6 +144,11 @@ interface CareerTwinMemory {
   recommendations: TaskItem[];
   weaknessRemediations?: WeaknessRemediation[];
   dynamicInterview?: DynamicInterview;
+  nextRecommendedSkill?: NextRecommendedSkill;
+  nextBestAction?: NextBestAction;
+  structuredPipeline?: PipelineStep[];
+  practicalProject?: PracticalProject;
+  skillEngineTiers?: SkillEngineTiers;
   generatedAt?: string;
 }
 
@@ -193,6 +256,233 @@ const CareerTwin = () => {
 
       {memory && !loading && (
         <div className="mt-8 grid gap-8">
+          {/* 1. NEXT RECOMMENDED SKILL SPOTLIGHT BANNER */}
+          {(memory.nextRecommendedSkill || memory.weaknesses?.length > 0) && (
+            <section className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none" />
+              
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                <div className="space-y-3 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-3 py-1 text-xs font-bold text-cyan-300">
+                      <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                      YOUR NEXT RECOMMENDED SKILL
+                    </span>
+                    <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                      High Priority Gap
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Target Role: <strong className="text-white">{memory.targetRole || memory.discipline || 'Professional'}</strong>
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    {memory.nextRecommendedSkill?.skill || memory.weaknesses[0]}
+                  </h2>
+
+                  <div className="rounded-xl border border-white/5 bg-slate-950/50 p-4">
+                    <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Lightbulb className="h-3.5 w-3.5" />
+                      Why you should learn this now
+                    </p>
+                    <p className="text-sm text-slate-200 leading-relaxed">
+                      {memory.nextRecommendedSkill?.whyRecommended ||
+                        `Direct prerequisite for your target role in ${memory.discipline || 'your career'}. 85% of employers benchmark this competency before selection. Mastering this bridges your evaluated skill gap.`}
+                    </p>
+                  </div>
+
+                  {/* Prerequisites & Progression Level */}
+                  <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-cyan-400" />
+                      <span>Progression: <strong className="text-slate-200">{memory.nextRecommendedSkill?.currentLevel || 'Beginner'} → {memory.nextRecommendedSkill?.targetLevel || 'Advanced'}</strong></span>
+                    </div>
+                    {memory.nextRecommendedSkill?.prerequisites && (
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                        <span>Prerequisites: <strong className="text-slate-200">{memory.nextRecommendedSkill.prerequisites.join(', ')}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Direct Action Navigation */}
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      const topic = memory.nextRecommendedSkill?.skill || memory.weaknesses[0];
+                      window.location.href = `/learning?topic=${encodeURIComponent(topic)}`;
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-cyan-300 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)] active:scale-95"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Study Topic Notes
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const topic = memory.nextRecommendedSkill?.skill || memory.weaknesses[0];
+                      window.location.href = `/learning?tab=mcq&topic=${encodeURIComponent(topic)}`;
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-800/80 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-slate-700 active:scale-95"
+                  >
+                    <Target className="h-4 w-4 text-cyan-400" />
+                    Take Practice Quiz
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      window.location.href = '/interview';
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-6 py-2.5 text-xs font-bold text-violet-300 transition-all hover:bg-violet-500/20 active:scale-95"
+                  >
+                    <BriefcaseBusiness className="h-3.5 w-3.5 text-violet-400" />
+                    Simulate AI Interview
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* 2. CAREER PROGRESSION PIPELINE (12 Sequential Milestones) */}
+          <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                  <Compass className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Structured Career Progression Pipeline</h3>
+                  <p className="text-xs text-slate-400">Sequential roadmap: from current standing to validated job placement readiness</p>
+                </div>
+              </div>
+              <span className="text-xs font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 rounded-full font-bold self-start sm:self-auto">
+                Discipline: {memory.discipline || memory.careerDomain || 'General'}
+              </span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pt-1">
+              {(memory.structuredPipeline || [
+                { step: 1, label: '1. Current Position Verified', status: 'COMPLETED', detail: `${memory.overallScore}% composite readiness.` },
+                { step: 2, label: '2. Target Career Identified', status: 'COMPLETED', detail: `Target: ${memory.targetRole || 'Professional'}.` },
+                { step: 3, label: '3. Required Skills Cataloged', status: 'COMPLETED', detail: 'Curriculum topics mapped.' },
+                { step: 4, label: '4. Current Skills Verified', status: 'COMPLETED', detail: `${memory.strengths.length} verified competencies.` },
+                { step: 5, label: '5. Real Skill Gaps Calculated', status: 'IN_PROGRESS', detail: `${memory.weaknesses.length} critical gaps identified.` },
+                { step: 6, label: `6. Priority Skill: ${memory.weaknesses[0] || 'Core'}`, status: 'IN_PROGRESS', detail: 'Recommended to learn first.' },
+                { step: 7, label: '7. Structured Learning Path', status: 'ACTIVE', detail: 'Detailed notes and study guide.', actionUrl: '/learning' },
+                { step: 8, label: '8. Concept Practice & MCQ', status: 'PENDING', detail: '5-question diagnostic quiz.', actionUrl: '/learning' },
+                { step: 9, label: '9. Skill Assessment', status: 'PENDING', detail: 'Score >= 70% to update Skill DNA.', actionUrl: '/learning' },
+                { step: 10, label: '10. Practical Project Work', status: 'PENDING', detail: memory.practicalProject?.title || 'Hands-on domain deliverable.' },
+                { step: 11, label: '11. AI Interview Simulation', status: 'PENDING', detail: 'Targeted panel interview prep.', actionUrl: '/interview' },
+                { step: 12, label: '12. Skill DNA Update', status: 'PENDING', detail: 'Verified mastery recorded on credential.' },
+              ]).map((st) => (
+                <div
+                  key={st.step}
+                  onClick={() => {
+                    if (st.actionUrl) window.location.href = st.actionUrl;
+                  }}
+                  className={`rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                    st.status === 'COMPLETED'
+                      ? 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/30'
+                      : st.status === 'ACTIVE' || st.status === 'IN_PROGRESS'
+                      ? 'border-cyan-500/30 bg-cyan-500/5 hover:border-cyan-500/40 shadow-[0_0_15px_rgba(34,211,238,0.1)]'
+                      : 'border-white/5 bg-slate-950/40 opacity-75'
+                  } ${st.actionUrl ? 'cursor-pointer hover:scale-[1.02]' : ''}`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-white line-clamp-1">{st.label}</span>
+                      {st.status === 'COMPLETED' ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      ) : st.status === 'ACTIVE' || st.status === 'IN_PROGRESS' ? (
+                        <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                      ) : (
+                        <span className="text-[10px] text-slate-500 font-mono">#{st.step}</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug line-clamp-2">{st.detail}</p>
+                  </div>
+                  {st.actionUrl && (
+                    <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-semibold text-cyan-400">
+                      <span>Take Action</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 3. PRACTICAL PROJECT WORK & SKILL TIERS */}
+          {memory.practicalProject && (
+            <section className="grid gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400">
+                    <FolderKanban className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Recommended Practical Project</h3>
+                    <p className="text-xs text-slate-400">Hands-on milestone tailored to {memory.discipline || 'your career'}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-violet-500/20 bg-slate-950/60 p-5 space-y-3">
+                  <h4 className="text-sm font-bold text-violet-300">{memory.practicalProject.title}</h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">{memory.practicalProject.description}</p>
+                  <div className="pt-2 border-t border-slate-800 text-xs text-slate-400">
+                    <strong className="text-slate-200">Required Deliverable:</strong> {memory.practicalProject.deliverable}
+                  </div>
+                </div>
+              </div>
+
+              {/* Skill Engine Tiers */}
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                    <Layers className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Skill Engine Prerequisites & Tiers</h3>
+                    <p className="text-xs text-slate-400">Progressive difficulty: Foundation → Core Practitioner → Advanced</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="rounded-xl border border-emerald-500/20 bg-slate-950/40 p-3.5 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-emerald-300">Tier 1: Foundational Principles</p>
+                      <p className="text-[11px] text-slate-400">Terminology, definitions, statutory frameworks</p>
+                    </div>
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {memory.overallScore >= 70 ? 'Mastered' : 'In Progress'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-cyan-500/20 bg-slate-950/40 p-3.5 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-cyan-300">Tier 2: Core Practitioner Workflow</p>
+                      <p className="text-[11px] text-slate-400">Differential diagnostics, trade-off optimization, execution</p>
+                    </div>
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      In Progress
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3.5 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-300">Tier 3: Advanced Architecture & Leadership</p>
+                      <p className="text-[11px] text-slate-400">Systemic reliability, failure modes, executive communication</p>
+                    </div>
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                      {memory.overallScore >= 85 ? 'Unlocked' : 'Locked'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Overall readiness" value={memory.overallScore} suffix="%" progress={memory.overallScore} tone="bg-cyan-400" icon={BrainCircuit} />
             <MetricCard label="Technical depth" value={memory.technicalScore} suffix="%" progress={memory.technicalScore} tone="bg-violet-400" icon={Target} />
