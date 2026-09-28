@@ -2,7 +2,8 @@ import {
   FileText, ListChecks, Sparkles, Loader2, CheckCircle2, XCircle, 
   AlertTriangle, Award, BookOpen, MessageSquare, Send, ChevronRight, 
   ChevronDown, RotateCcw, ExternalLink, HelpCircle, Lock, Video, 
-  Code, Compass, ArrowRight, CheckCircle, RefreshCw, X, AlertCircle
+  Code, Compass, ArrowRight, CheckCircle, RefreshCw, X, AlertCircle,
+  Bookmark, Copy, Search, Trash2
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +13,7 @@ import ProgressBar from '../components/ProgressBar';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-type TabType = 'notes' | 'resources' | 'mcq' | 'interview' | 'remediation';
+type TabType = 'notes' | 'ai-notes' | 'my-notes' | 'resources' | 'mcq' | 'interview' | 'remediation';
 
 interface TopicProgress {
   name: string;
@@ -82,6 +83,139 @@ const LearningHub = () => {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, chatbotOpen]);
+
+  // AI Study Notes State
+  const [aiNoteTopic, setAiNoteTopic] = useState('');
+  const [aiNoteDomain, setAiNoteDomain] = useState('');
+  const [aiNoteSourceText, setAiNoteSourceText] = useState('');
+  const [aiNoteLevel, setAiNoteLevel] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Intermediate');
+  const [generatingNotes, setGeneratingNotes] = useState(false);
+  const [generatedNote, setGeneratedNote] = useState<any>(null);
+  const [noteActiveSubtab, setNoteActiveSubtab] = useState<'summary' | 'detailed' | 'keypoints' | 'revision' | 'questions' | 'flashcards' | 'quiz'>('summary');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteSaveSuccess, setNoteSaveSuccess] = useState<string | null>(null);
+  const [flashcardIdx, setFlashcardIdx] = useState(0);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [noteQuizAnswers, setNoteQuizAnswers] = useState<Record<string, number>>({});
+  const [noteQuizSubmitted, setNoteQuizSubmitted] = useState(false);
+  const [noteQuizResult, setNoteQuizResult] = useState<any>(null);
+
+  // My Saved Notes State
+  const [myNotes, setMyNotes] = useState<any[]>([]);
+  const [loadingMyNotes, setLoadingMyNotes] = useState(false);
+  const [savedNotesSearch, setSavedNotesSearch] = useState('');
+  const [selectedSavedNote, setSelectedSavedNote] = useState<any>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+  const fetchMyNotes = async () => {
+    if (!token) return;
+    try {
+      setLoadingMyNotes(true);
+      const data = await apiRequest<any[]>('/learning/notes/my', { token });
+      setMyNotes(data || []);
+    } catch (err: any) {
+      console.warn('Failed to load saved notes:', err);
+    } finally {
+      setLoadingMyNotes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'my-notes') {
+      fetchMyNotes();
+    }
+  }, [activeTab]);
+
+  const handleGenerateAiNotes = async () => {
+    const topicToUse = aiNoteTopic.trim() || curriculum?.topics?.[selectedTopicIndex]?.name || 'Core Fundamentals';
+    setGeneratingNotes(true);
+    setNoteSaveSuccess(null);
+    setNoteQuizAnswers({});
+    setNoteQuizSubmitted(false);
+    setNoteQuizResult(null);
+    setFlashcardIdx(0);
+    setFlashcardFlipped(false);
+    try {
+      const res = await apiRequest<any>('/learning/notes/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: topicToUse,
+          domain: aiNoteDomain || curriculum?.domain || 'General',
+          sourceText: aiNoteSourceText.trim(),
+          level: aiNoteLevel,
+        }),
+        token,
+      });
+      setGeneratedNote(res);
+      setNoteActiveSubtab('summary');
+    } catch (err: any) {
+      alert('Failed to generate notes: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setGeneratingNotes(false);
+    }
+  };
+
+  const handleSaveAiNote = async () => {
+    if (!generatedNote) return;
+    setSavingNote(true);
+    try {
+      await apiRequest('/learning/notes/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: generatedNote.topic,
+          domain: generatedNote.domain,
+          summary: generatedNote.summary,
+          detailedNotes: generatedNote.detailedNotes,
+          keyPoints: generatedNote.keyPoints,
+          quickRevision: generatedNote.quickRevision,
+          questions: generatedNote.questions,
+          flashcards: generatedNote.flashcards,
+          quiz: generatedNote.quiz,
+        }),
+        token,
+      });
+      setNoteSaveSuccess('Study note saved to your personal library!');
+      fetchMyNotes();
+      setTimeout(() => setNoteSaveSuccess(null), 3500);
+    } catch (err: any) {
+      alert('Failed to save note: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleDeleteSavedNote = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this study note?')) return;
+    try {
+      setDeletingNoteId(id);
+      await apiRequest(`/learning/notes/${id}`, {
+        method: 'DELETE',
+        token,
+      });
+      setMyNotes((prev) => prev.filter((n) => (n.id || n._id) !== id));
+      if (selectedSavedNote && (selectedSavedNote.id === id || selectedSavedNote._id === id)) {
+        setSelectedSavedNote(null);
+      }
+    } catch (err: any) {
+      alert('Failed to delete note: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setDeletingNoteId(null);
+    }
+  };
+
+  const handleGradeNoteQuiz = () => {
+    if (!generatedNote?.quiz) return;
+    let correct = 0;
+    const total = generatedNote.quiz.length;
+    generatedNote.quiz.forEach((q: any) => {
+      if (noteQuizAnswers[q.id] === q.correctAnswer) {
+        correct++;
+      }
+    });
+    const score = Math.round((correct / total) * 100);
+    setNoteQuizResult({ score, correct, total, passed: score >= 70 });
+    setNoteQuizSubmitted(true);
+  };
 
   // Load Active Curriculum
   const fetchCurriculum = async () => {
@@ -492,7 +626,9 @@ const LearningHub = () => {
             {/* Navigation Tabs */}
             <div className="flex items-center gap-2 pt-3 overflow-x-auto">
               {[
-                { id: 'notes', label: 'Topic Notes', icon: FileText },
+                { id: 'notes', label: 'Curriculum Notes', icon: FileText },
+                { id: 'ai-notes', label: 'AI Study Notes', icon: Sparkles },
+                { id: 'my-notes', label: 'My Notes', icon: BookOpen },
                 { id: 'resources', label: 'Learning Resources', icon: Video },
                 { id: 'mcq', label: 'MCQ Practice (75% Rule)', icon: ListChecks },
                 { id: 'interview', label: 'Mock Interview', icon: Award },
@@ -616,6 +752,468 @@ const LearningHub = () => {
                       </>
                     )}
                   </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 1B: AI STUDY NOTES WORKSPACE */}
+          {activeTab === 'ai-notes' && (
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-cyan-400" />
+                    AI Study Notes & Active Recall Generator
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Generate comprehensive study guides, executive summaries, revision sheets, interactive flashcards, and quizzes from any topic, syllabus, or raw notes.
+                  </p>
+                </div>
+                {generatedNote && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveAiNote}
+                      disabled={savingNote}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {savingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5" />}
+                      Save to My Notes
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {noteSaveSuccess && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {noteSaveSuccess}
+                </div>
+              )}
+
+              {/* Generator Input Section */}
+              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Topic / Concept Name</label>
+                    <input
+                      type="text"
+                      value={aiNoteTopic}
+                      onChange={(e) => setAiNoteTopic(e.target.value)}
+                      placeholder={curriculum?.topics?.[selectedTopicIndex]?.name || 'e.g. Distributed Caching'}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Discipline / Career Domain</label>
+                    <input
+                      type="text"
+                      value={aiNoteDomain}
+                      onChange={(e) => setAiNoteDomain(e.target.value)}
+                      placeholder={curriculum?.domain || 'e.g. Medical, HR, Computer Science'}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Proficiency Target</label>
+                    <select
+                      value={aiNoteLevel}
+                      onChange={(e) => setAiNoteLevel(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs focus:outline-none focus:border-cyan-500"
+                    >
+                      <option value="Beginner">Beginner / Fundamentals</option>
+                      <option value="Intermediate">Intermediate / Industry Standard</option>
+                      <option value="Advanced">Advanced / Senior Diagnostic</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Optional: Paste Course Material, Syllabus, or Lecture Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={aiNoteSourceText}
+                    onChange={(e) => setAiNoteSourceText(e.target.value)}
+                    placeholder="Paste textbook excerpts, professor notes, or syllabus bullet points to tailor note generation..."
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiNotes}
+                    disabled={generatingNotes}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 hover:opacity-90 active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {generatingNotes ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    <span>{generatingNotes ? 'Synthesizing 7 Note Artifacts...' : 'Generate AI Study Notes'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Generated Note View with Artifact Sub-Tabs */}
+              {generatedNote && (
+                <div className="space-y-4 pt-2">
+                  {/* Artifact Subtabs */}
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+                    {[
+                      { id: 'summary', label: 'Executive Summary' },
+                      { id: 'detailed', label: 'Detailed Notes' },
+                      { id: 'keypoints', label: 'Key Points' },
+                      { id: 'revision', label: 'Quick Revision Sheet' },
+                      { id: 'questions', label: 'Important Q&A' },
+                      { id: 'flashcards', label: `Flashcards (${generatedNote.flashcards?.length || 0})` },
+                      { id: 'quiz', label: 'Practice Quiz' },
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        onClick={() => setNoteActiveSubtab(st.id as any)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                          noteActiveSubtab === st.id
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* SUBTAB 1: SUMMARY */}
+                  {noteActiveSubtab === 'summary' && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Executive Brief</span>
+                        <span className="text-xs text-slate-400 font-mono">{generatedNote.topic} • {generatedNote.domain}</span>
+                      </div>
+                      <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{generatedNote.summary}</p>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 2: DETAILED NOTES */}
+                  {noteActiveSubtab === 'detailed' && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5">
+                      <div className="prose prose-invert max-w-none text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                        {generatedNote.detailedNotes}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 3: KEY POINTS */}
+                  {noteActiveSubtab === 'keypoints' && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">Core High-Yield Bullet Points</h4>
+                      <div className="space-y-2.5">
+                        {generatedNote.keyPoints?.map((kp: string, idx: number) => (
+                          <div key={idx} className="flex items-start gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs text-slate-200 leading-relaxed">{kp}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 4: QUICK REVISION */}
+                  {noteActiveSubtab === 'revision' && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">Rapid Exam & Interview Cheat Sheet</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {generatedNote.quickRevision?.map((rev: string, idx: number) => (
+                          <div key={idx} className="bg-slate-900 border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-2.5">
+                            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-slate-200">{rev}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 5: IMPORTANT Q&A */}
+                  {noteActiveSubtab === 'questions' && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">High-Probability Questions & Model Answers</h4>
+                      <div className="space-y-3">
+                        {generatedNote.questions?.map((qa: any, idx: number) => (
+                          <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                            <div className="text-xs font-bold text-white flex items-center gap-2">
+                              <span className="bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded text-[10px]">Q{idx + 1}</span>
+                              {qa.question}
+                            </div>
+                            <div className="text-xs text-slate-300 bg-slate-950/80 p-3 rounded-lg border border-slate-800/80 leading-relaxed">
+                              <strong className="text-emerald-400 font-semibold block mb-1">Model Answer:</strong>
+                              {qa.answer}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 6: FLASHCARDS */}
+                  {noteActiveSubtab === 'flashcards' && generatedNote.flashcards?.length > 0 && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-6 flex flex-col items-center space-y-4">
+                      <div className="flex items-center justify-between w-full max-w-lg">
+                        <span className="text-xs font-mono text-cyan-400">
+                          Card {flashcardIdx + 1} of {generatedNote.flashcards.length}
+                        </span>
+                        <span className="text-[11px] text-slate-400">Click card to flip</span>
+                      </div>
+
+                      {/* Flip Card Container */}
+                      <div
+                        onClick={() => setFlashcardFlipped(!flashcardFlipped)}
+                        className="w-full max-w-lg h-56 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-950 p-6 flex flex-col justify-between cursor-pointer shadow-xl shadow-cyan-500/10 hover:border-cyan-400/60 transition-all select-none"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                            flashcardFlipped ? 'bg-emerald-500/20 text-emerald-300' : 'bg-cyan-500/20 text-cyan-300'
+                          }`}>
+                            {flashcardFlipped ? 'Answer / Insight' : 'Prompt / Question'}
+                          </span>
+                          <span className="text-xs text-slate-500 font-mono">SkillDNA Active Recall</span>
+                        </div>
+
+                        <div className="text-center py-4">
+                          <p className="text-base font-bold text-white leading-relaxed">
+                            {flashcardFlipped
+                              ? generatedNote.flashcards[flashcardIdx]?.back
+                              : generatedNote.flashcards[flashcardIdx]?.front}
+                          </p>
+                        </div>
+
+                        <div className="text-center text-[11px] text-slate-500">
+                          {flashcardFlipped ? 'Click to view question' : 'Click to reveal answer'}
+                        </div>
+                      </div>
+
+                      {/* Card Controls */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFlashcardFlipped(false);
+                            setFlashcardIdx((prev) => (prev > 0 ? prev - 1 : generatedNote.flashcards.length - 1));
+                          }}
+                          className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-300 hover:text-white"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFlashcardFlipped(false);
+                            setFlashcardIdx((prev) => (prev < generatedNote.flashcards.length - 1 ? prev + 1 : 0));
+                          }}
+                          className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-md shadow-cyan-500/20"
+                        >
+                          Next Card
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 7: PRACTICE QUIZ */}
+                  {noteActiveSubtab === 'quiz' && generatedNote.quiz?.length > 0 && (
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">Topic Knowledge Check</h4>
+                        {noteQuizResult && (
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                            noteQuizResult.passed ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300'
+                          }`}>
+                            Score: {noteQuizResult.score}% ({noteQuizResult.correct}/{noteQuizResult.total})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        {generatedNote.quiz.map((q: any, qIdx: number) => {
+                          const qKey = q.id || `Q${qIdx + 1}`;
+                          return (
+                            <div key={qKey} className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                              <p className="text-xs font-bold text-white">
+                                {qIdx + 1}. {q.question}
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {q.options?.map((opt: string, optIdx: number) => {
+                                  const isSelected = noteQuizAnswers[qKey] === optIdx;
+                                  const isCorrect = q.correctAnswer === optIdx;
+                                  let btnClass = 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700';
+                                  if (noteQuizSubmitted) {
+                                    if (isCorrect) btnClass = 'bg-emerald-950/50 border-emerald-500/60 text-emerald-300';
+                                    else if (isSelected) btnClass = 'bg-rose-950/50 border-rose-500/60 text-rose-300';
+                                  } else if (isSelected) {
+                                    btnClass = 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300';
+                                  }
+
+                                  return (
+                                    <button
+                                      key={optIdx}
+                                      type="button"
+                                      disabled={noteQuizSubmitted}
+                                      onClick={() => setNoteQuizAnswers((prev) => ({ ...prev, [qKey]: optIdx }))}
+                                      className={`text-left p-3 rounded-xl border text-xs transition cursor-pointer ${btnClass}`}
+                                    >
+                                      {opt}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {noteQuizSubmitted && q.explanation && (
+                                <p className="text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/60">
+                                  <strong>Explanation:</strong> {q.explanation}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {!noteQuizSubmitted ? (
+                        <div className="flex justify-end pt-2">
+                          <button
+                            type="button"
+                            onClick={handleGradeNoteQuiz}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 hover:opacity-90 cursor-pointer"
+                          >
+                            Submit & Grade Quiz
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="text-xs text-emerald-400 font-semibold">
+                            ✓ Quiz completed! Skill DNA learning evidence updated.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNoteQuizAnswers({});
+                              setNoteQuizSubmitted(false);
+                              setNoteQuizResult(null);
+                            }}
+                            className="px-4 py-2 rounded-xl border border-slate-700 text-xs text-slate-300 hover:text-white"
+                          >
+                            Retake Quiz
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 1C: MY SAVED NOTES */}
+          {activeTab === 'my-notes' && (
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-cyan-400" />
+                    My Saved Study Notes
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Your personal repository of curated AI study notes, revision sheets, and practice flashcards.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('ai-notes')}
+                  className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Generate New Notes
+                </button>
+              </div>
+
+              {/* Notes Search Filter */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={savedNotesSearch}
+                  onChange={(e) => setSavedNotesSearch(e.target.value)}
+                  placeholder="Search saved study notes by topic or keyword..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              {loadingMyNotes ? (
+                <div className="py-16 text-center">
+                  <Loader2 className="w-6 h-6 text-cyan-400 animate-spin mx-auto mb-2" />
+                  <p className="text-xs text-slate-400">Loading your saved study notes...</p>
+                </div>
+              ) : myNotes.length === 0 ? (
+                <div className="py-16 text-center max-w-sm mx-auto space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-white">No Saved Notes Yet</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Generate and save comprehensive study notes from any topic or syllabus to build your personal learning library.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('ai-notes')}
+                    className="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20"
+                  >
+                    Generate First Note
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {myNotes
+                    .filter((n) =>
+                      n.topic?.toLowerCase().includes(savedNotesSearch.toLowerCase()) ||
+                      n.domain?.toLowerCase().includes(savedNotesSearch.toLowerCase())
+                    )
+                    .map((note) => {
+                      const noteId = note._id || note.id;
+                      const dateStr = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : 'Recent';
+                      return (
+                        <div
+                          key={noteId}
+                          className="bg-slate-950/80 border border-slate-800 hover:border-cyan-500/40 rounded-xl p-4 flex flex-col justify-between gap-3 transition"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-bold">
+                                {note.domain || 'General'}
+                              </span>
+                              <span className="text-[10px] text-slate-500">{dateStr}</span>
+                            </div>
+                            <h4 className="text-sm font-bold text-white mt-2">{note.topic}</h4>
+                            <p className="text-xs text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                              {note.summary}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                            <button
+                              onClick={() => {
+                                setGeneratedNote(note);
+                                setActiveTab('ai-notes');
+                              }}
+                              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+                            >
+                              Open & Study <ArrowRight className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSavedNote(noteId)}
+                              disabled={deletingNoteId === noteId}
+                              className="p-1 rounded text-slate-500 hover:text-rose-400 transition cursor-pointer"
+                              title="Delete Note"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>

@@ -3,7 +3,7 @@ import {
   Users, Search, Filter, CheckCircle2, AlertCircle, Loader2,
   ShieldCheck, ShieldAlert, Eye, UserPlus, RefreshCw, X, Lock,
   GraduationCap, Briefcase, Building, Mail, Phone, Calendar,
-  Award, FileText, Check, AlertTriangle
+  Award, FileText, Check, AlertTriangle, Trash2
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -44,6 +44,13 @@ export const UserManagement: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Multi-select & Bulk operations state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<'DEACTIVATE' | 'ACTIVATE' | 'DELETE' | 'VERIFY' | null>(null);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Selected User Modal for detailed profile view
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -63,6 +70,55 @@ export const UserManagement: React.FC = () => {
     branch: 'Computer Science',
     mobile: '',
   });
+
+  const handleToggleSelectUser = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const currentPageIds = users.map((u) => u.id || u._id || '').filter(Boolean);
+  const isAllCurrentSelected = currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.includes(id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllCurrentSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  const handleOpenBulkConfirm = (action: 'DEACTIVATE' | 'ACTIVATE' | 'DELETE' | 'VERIFY') => {
+    setBulkAction(action);
+    setBulkConfirmOpen(true);
+  };
+
+  const handleExecuteBulkAction = async () => {
+    if (!bulkAction || selectedIds.length === 0) return;
+    setBulkProcessing(true);
+    setBulkMessage(null);
+    try {
+      const res = await apiRequest<{ status: string; message: string; modifiedCount: number }>('/admin/users/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_ids: selectedIds,
+          action: bulkAction,
+        }),
+        token,
+      });
+
+      setBulkMessage({ type: 'success', text: res.message || `Successfully executed ${bulkAction} on ${res.modifiedCount} accounts.` });
+      setSelectedIds([]);
+      setBulkConfirmOpen(false);
+      fetchUsers();
+      setTimeout(() => setBulkMessage(null), 4000);
+    } catch (err: any) {
+      setBulkMessage({ type: 'error', text: err?.message || `Failed to execute bulk ${bulkAction}` });
+      setBulkConfirmOpen(false);
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -342,6 +398,67 @@ export const UserManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Bulk Operation Notification Banner */}
+      {bulkMessage && (
+        <div className={`p-4 rounded-xl text-sm font-semibold flex items-center justify-between gap-3 border ${
+          bulkMessage.type === 'success'
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            {bulkMessage.type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+            <span>{bulkMessage.text}</span>
+          </div>
+          <button onClick={() => setBulkMessage(null)} className="text-slate-400 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Selection Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="bg-gradient-to-r from-slate-900 to-slate-950 border border-cyan-500/30 rounded-2xl p-4 shadow-[0_0_25px_rgba(34,211,238,0.15)] flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 font-bold text-xs border border-cyan-500/40">
+              {selectedIds.length}
+            </span>
+            <span className="text-sm font-semibold text-white">Accounts Selected</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => handleOpenBulkConfirm('DEACTIVATE')}
+              className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldAlert className="h-3.5 w-3.5" /> Deactivate / Suspend
+            </button>
+            <button
+              onClick={() => handleOpenBulkConfirm('ACTIVATE')}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" /> Activate
+            </button>
+            <button
+              onClick={() => handleOpenBulkConfirm('VERIFY')}
+              className="px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Mark Verified
+            </button>
+            <button
+              onClick={() => handleOpenBulkConfirm('DELETE')}
+              className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Soft Delete
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-2.5 py-1.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-slate-800 text-xs transition-all cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Users Table */}
       <div className="bg-slate-900/60 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-xl">
         {loading ? (
@@ -371,6 +488,15 @@ export const UserManagement: React.FC = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-950/80 text-xs uppercase font-semibold text-slate-400 border-b border-white/5">
                 <tr>
+                  <th className="px-4 py-4 w-12 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllCurrentSelected}
+                      onChange={handleToggleSelectAll}
+                      className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-0 cursor-pointer h-4 w-4"
+                      title="Select all on this page"
+                    />
+                  </th>
                   <th className="px-5 py-4">User</th>
                   <th className="px-4 py-4">Role</th>
                   <th className="px-4 py-4">Status</th>
@@ -388,7 +514,15 @@ export const UserManagement: React.FC = () => {
                   const dateStr = regDate ? new Date(regDate).toLocaleDateString() : 'N/A';
 
                   return (
-                    <tr key={uId} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={uId} className={`hover:bg-white/[0.02] transition-colors ${selectedIds.includes(uId) ? 'bg-cyan-500/[0.04]' : ''}`}>
+                      <td className="px-4 py-3.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(uId)}
+                          onChange={() => handleToggleSelectUser(uId)}
+                          className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-0 cursor-pointer h-4 w-4"
+                        />
+                      </td>
                       <td className="px-5 py-3.5">
                         <div className="font-bold text-white">{u.name || 'Unnamed User'}</div>
                         <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
@@ -747,6 +881,75 @@ export const UserManagement: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Action Confirmation Modal */}
+      {bulkConfirmOpen && bulkAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-white/10 p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-3 rounded-xl ${
+                bulkAction === 'DELETE'
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                  : bulkAction === 'DEACTIVATE'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+              }`}>
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Confirm Bulk {bulkAction}</h3>
+                <p className="text-xs text-slate-400">{selectedIds.length} user account(s) selected</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-300 leading-relaxed mb-6">
+              {bulkAction === 'DELETE' ? (
+                <>
+                  Are you sure you want to <strong>soft-delete {selectedIds.length} account(s)</strong>? Their status will be marked as DELETED. Historical interview records and certificates will remain preserved safely in the database.
+                </>
+              ) : bulkAction === 'DEACTIVATE' ? (
+                <>
+                  Are you sure you want to <strong>suspend {selectedIds.length} account(s)</strong>? Suspended users will be immediately locked out until an administrator reactivates them.
+                </>
+              ) : bulkAction === 'ACTIVATE' ? (
+                <>
+                  Are you sure you want to <strong>activate {selectedIds.length} account(s)</strong>? They will regain full access to the platform.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to <strong>mark {selectedIds.length} account(s) as verified</strong>?
+                </>
+              )}
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setBulkConfirmOpen(false)}
+                disabled={bulkProcessing}
+                className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBulkAction}
+                disabled={bulkProcessing}
+                className={`px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer ${
+                  bulkAction === 'DELETE'
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20'
+                    : bulkAction === 'DEACTIVATE'
+                    ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-lg shadow-amber-600/20'
+                    : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20'
+                }`}
+              >
+                {bulkProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm {bulkAction}
+              </button>
+            </div>
           </div>
         </div>
       )}

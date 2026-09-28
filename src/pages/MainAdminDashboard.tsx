@@ -197,11 +197,25 @@ const CAREER_DOMAINS = [
   'Healthcare',
 ];
 
-const MainAdminDashboard = () => {
+interface MainAdminDashboardProps {
+  defaultTab?: 'overview' | 'users' | 'students' | 'questions' | 'career-changes' | 'topic-notes' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'helpdesk';
+  hideSidebar?: boolean;
+}
+
+const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
+  defaultTab = 'overview',
+  hideSidebar = true,
+}) => {
   const { user } = useAuth();
   const isMainAdmin = user?.email === 'skilldnaai@ai.com';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'students' | 'questions' | 'career-changes' | 'topic-notes' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'helpdesk'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'students' | 'questions' | 'career-changes' | 'topic-notes' | 'footer' | 'admins' | 'certificates' | 'page-settings' | 'feedback' | 'helpdesk'>(defaultTab);
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
   const [footerData, setFooterData] = useState<FooterData>(defaultFooterData);
 
   // Question Bank State
@@ -811,119 +825,123 @@ const MainAdminDashboard = () => {
     }));
   };
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 overflow-hidden">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <SectionHeader
-          eyebrow="Admin dashboard"
-          title="Operate content, users, reports, jobs, and analytics"
-          description="Manage students, recruiters, companies, lessons, quizzes, webinars, reports, badges, emails, job postings, and moderation from one control surface."
-          action={
-            <button 
-              onClick={() => setActiveTab('questions')}
-              className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <FilePlus2 className="h-5 w-5 transition-transform group-hover:scale-110" />
-              Question Bank & AI
-            </button>
-          }
-        />
-      </motion.div>
+    <div className="w-full overflow-hidden">
+      {!hideSidebar && (
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <SectionHeader
+            eyebrow="Admin dashboard"
+            title="Operate content, users, reports, jobs, and analytics"
+            description="Manage students, recruiters, companies, lessons, quizzes, webinars, reports, badges, emails, job postings, and moderation from one control surface."
+            action={
+              <button 
+                onClick={() => setActiveTab('questions')}
+                className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <FilePlus2 className="h-5 w-5 transition-transform group-hover:scale-110" />
+                Question Bank & AI
+              </button>
+            }
+          />
+        </motion.div>
+      )}
 
-      <section className="mt-8 grid gap-8 lg:grid-cols-[280px_1fr]">
-        <aside className="hidden lg:block rounded-3xl border border-white/5 bg-slate-900/70 p-5 shadow-lg shadow-black/20 sticky top-24 self-start">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300 mb-4">Admin quick links</p>
-          <div className="space-y-2">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'overview' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <BarChart3 className="h-4 w-4 text-cyan-400" />
-              <span>Overview</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('students')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'students' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <GraduationCap className="h-4 w-4 text-cyan-400" />
-              <span>Student Accounts</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('questions')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'questions' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <FilePlus2 className="h-4 w-4 text-cyan-400" />
-              <span>Question Bank & AI</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('career-changes')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'career-changes' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <GitPullRequest className="h-4 w-4 text-cyan-400" />
-              <span>Career Change Requests</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('topic-notes')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'topic-notes' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <BookOpen className="h-4 w-4 text-cyan-400" />
-              <span>Topic Notes & Curriculum</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'users' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <Users className="h-4 w-4 text-cyan-400" />
-              <span>User Management</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('helpdesk')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'helpdesk' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <ShieldAlert className="h-4 w-4 text-cyan-400" />
-              <span>Helpdesk & Support</span>
-            </button>
-            {isMainAdmin && (
+      <section className={hideSidebar ? "w-full" : "mt-8 grid gap-8 lg:grid-cols-[280px_1fr]"}>
+        {!hideSidebar && (
+          <aside className="hidden lg:block rounded-3xl border border-white/5 bg-slate-900/70 p-5 shadow-lg shadow-black/20 sticky top-24 self-start">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300 mb-4">Admin quick links</p>
+            <div className="space-y-2">
               <button
-                onClick={() => setActiveTab('admins')}
-                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'admins' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+                onClick={() => setActiveTab('overview')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'overview' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <BarChart3 className="h-4 w-4 text-cyan-400" />
+                <span>Overview</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('students')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'students' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <GraduationCap className="h-4 w-4 text-cyan-400" />
+                <span>Student Accounts</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('questions')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'questions' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <FilePlus2 className="h-4 w-4 text-cyan-400" />
+                <span>Question Bank & AI</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('career-changes')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'career-changes' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <GitPullRequest className="h-4 w-4 text-cyan-400" />
+                <span>Career Change Requests</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('topic-notes')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'topic-notes' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <BookOpen className="h-4 w-4 text-cyan-400" />
+                <span>Topic Notes & Curriculum</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'users' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
               >
                 <Users className="h-4 w-4 text-cyan-400" />
-                <span>User accounts</span>
+                <span>User Management</span>
               </button>
-            )}
-            <button
-              onClick={() => setActiveTab('footer')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'footer' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <Edit3 className="h-4 w-4 text-cyan-400" />
-              <span>Footer settings</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('certificates')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'certificates' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <Award className="h-4 w-4 text-cyan-400" />
-              <span>Certificates & Signature</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('page-settings')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'page-settings' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <Settings className="h-4 w-4 text-cyan-400" />
-              <span>Page Visibility</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('feedback')}
-              className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'feedback' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
-            >
-              <MessageSquareText className="h-4 w-4 text-cyan-400" />
-              <span>User Feedback</span>
-            </button>
-          </div>
-          <div className="mt-6 rounded-2xl border border-white/5 bg-slate-950/60 p-4">
-            <p className="text-sm font-medium text-slate-200">Manage footer links and content, review moderation, and access recruiter and community routes from this control sidebar.</p>
-          </div>
-        </aside>
+              <button
+                onClick={() => setActiveTab('helpdesk')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'helpdesk' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <ShieldAlert className="h-4 w-4 text-cyan-400" />
+                <span>Helpdesk & Support</span>
+              </button>
+              {isMainAdmin && (
+                <button
+                  onClick={() => setActiveTab('admins')}
+                  className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'admins' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+                >
+                  <Users className="h-4 w-4 text-cyan-400" />
+                  <span>User accounts</span>
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab('footer')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'footer' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <Edit3 className="h-4 w-4 text-cyan-400" />
+                <span>Footer settings</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('certificates')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'certificates' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <Award className="h-4 w-4 text-cyan-400" />
+                <span>Certificates & Signature</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('page-settings')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'page-settings' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <Settings className="h-4 w-4 text-cyan-400" />
+                <span>Page Visibility</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('feedback')}
+                className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm text-slate-200 transition-all ${activeTab === 'feedback' ? 'border-cyan-500/30 bg-slate-900 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5 hover:border-cyan-500/30 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <MessageSquareText className="h-4 w-4 text-cyan-400" />
+                <span>User Feedback</span>
+              </button>
+            </div>
+            <div className="mt-6 rounded-2xl border border-white/5 bg-slate-950/60 p-4">
+              <p className="text-sm font-medium text-slate-200">Manage footer links and content, review moderation, and access recruiter and community routes from this control sidebar.</p>
+            </div>
+          </aside>
+        )}
 
         <div className="space-y-8">
           {activeTab === 'overview' && (
@@ -3524,7 +3542,7 @@ const MainAdminDashboard = () => {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
 

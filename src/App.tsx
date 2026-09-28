@@ -26,6 +26,12 @@ const CertificatePage = lazy(() => import('./pages/CertificatePage'));
 const CertificateVerifyPage = lazy(() => import('./pages/CertificateVerifyPage'));
 const CertificateManagementPage = lazy(() => import('./pages/CertificateManagementPage'));
 const Feedback = lazy(() => import('./pages/Feedback'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const StudentAccountManagement = lazy(() => import('./components/admin/StudentAccountManagement').then(m => ({ default: m.StudentAccountManagement })));
+const UserManagement = lazy(() => import('./components/admin/UserManagement').then(m => ({ default: m.UserManagement })));
+const CareerChangeManagement = lazy(() => import('./components/admin/CareerChangeManagement').then(m => ({ default: m.CareerChangeManagement })));
+const TopicNotesManagement = lazy(() => import('./components/admin/TopicNotesManagement').then(m => ({ default: m.TopicNotesManagement })));
+const AdminHelpdeskPanel = lazy(() => import('./components/admin/AdminHelpdeskPanel').then(m => ({ default: m.AdminHelpdeskPanel })));
 
 const RouteFallback = () => (
   <motion.div 
@@ -121,9 +127,6 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Home />} />
-          <Route path="/main-admin" element={<ProtectedRoute allowedRoles={['MAIN_ADMIN', 'ADMIN', 'SUPPORT_TEAM']}><MainAdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><MainAdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><QuestionBankDashboard /></ProtectedRoute>} />
           <Route path="/hr" element={<ProtectedRoute allowedRoles={['HR']}><HrDashboard /></ProtectedRoute>} />
           <Route path="/recruiter" element={<Navigate to="/hr" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
@@ -146,8 +149,40 @@ const AnimatedRoutes = () => {
           <Route path="/verify/:certificateId" element={<CertificateVerifyPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/register" element={<Register />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
+
+        {/* Unified Admin Portal (One AdminLayout, One Sidebar, One Content Area) */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<MainAdminDashboard defaultTab="overview" />} />
+          <Route path="overview" element={<MainAdminDashboard defaultTab="overview" />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="questions" element={<QuestionBankDashboard />} />
+          <Route path="career-changes" element={<CareerChangeManagement />} />
+          <Route path="topic-notes" element={<TopicNotesManagement />} />
+          <Route path="helpdesk" element={<AdminHelpdeskPanel defaultTab="tickets" />} />
+          <Route path="footer" element={<MainAdminDashboard defaultTab="footer" />} />
+          <Route path="certificates" element={<MainAdminDashboard defaultTab="certificates" />} />
+          <Route path="page-settings" element={<MainAdminDashboard defaultTab="page-settings" />} />
+
+          {/* Merged Route Redirects & Aliases */}
+          <Route path="students" element={<Navigate to="/admin/users" replace />} />
+          <Route path="admins" element={<Navigate to="/admin/users" replace />} />
+          <Route path="feedback" element={<AdminHelpdeskPanel defaultTab="feedback" />} />
+          <Route path="*" element={<Navigate to="/admin/overview" replace />} />
+        </Route>
+
+        <Route path="/main-admin" element={<Navigate to="/admin" replace />} />
+        <Route path="/main-admin/*" element={<Navigate to="/admin" replace />} />
+
+        {/* Global Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>
   );
