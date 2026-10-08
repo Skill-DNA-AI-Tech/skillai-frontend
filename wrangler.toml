@@ -4,5 +4,9 @@ compatibility_date = "2024-09-23"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
+
+[vars]
+BACKEND_ORIGIN = "https://skillai-backend.onrender.com"

@@ -824,41 +824,23 @@ const LearningHub = () => {
                   )}
                 </div>
               ) : (
-                /* EMPTY STATE: Admin Notes not yet available -> Request Admin Button */
                 <div className="py-12 text-center max-w-md mx-auto space-y-4">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
-                    <FileText className="w-7 h-7" />
+                  <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400">
+                    <Sparkles className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Study Notes Under Curation</h3>
+                    <h3 className="text-base font-bold text-white">Generate Personalised AI Notes</h3>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      Official verified notes for <span className="text-cyan-300 font-semibold">{currentTopic?.name}</span> have not been published by the administration yet.
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      (To prevent hallucinated study materials, student auto-generation of unverified notes is restricted.)
+                      Create a domain-specific learning guide for <span className="text-cyan-300 font-semibold">{currentTopic?.name}</span> using your Career Twin, goals, level, strengths and skill gaps.
                     </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleRequestContent}
-                    disabled={requestingContent || contentRequested}
-                    className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 disabled:from-slate-700 disabled:to-slate-700 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 mx-auto"
+                    onClick={() => setActiveTab('ai-notes')}
+                    className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 mx-auto"
                   >
-                    {contentRequested ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-800" />
-                        Requested! Admin has been notified
-                      </>
-                    ) : requestingContent ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Submitting Request...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" /> Request Admin to Add Notes
-                      </>
-                    )}
+                    <Sparkles className="w-4 h-4" /> Open AI Study Notes
                   </button>
                 </div>
               )}

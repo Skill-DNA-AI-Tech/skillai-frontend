@@ -2,11 +2,17 @@ interface Env {
   ASSETS: {
     fetch: (request: Request) => Promise<Response>;
   };
+  BACKEND_ORIGIN: string;
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
+      const backendUrl = new URL(url.pathname + url.search, env.BACKEND_ORIGIN);
+      return fetch(new Request(backendUrl.toString(), request));
+    }
 
     // Try serving the static asset first
     let response = await env.ASSETS.fetch(request);
