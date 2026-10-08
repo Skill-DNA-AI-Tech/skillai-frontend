@@ -51,6 +51,11 @@ export const UserManagement: React.FC = () => {
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkMessage, setBulkMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Single User Deletion State
+  const [deleteTargetUser, setDeleteTargetUser] = useState<UserItem | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Selected User Modal for detailed profile view
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -216,6 +221,35 @@ export const UserManagement: React.FC = () => {
       }
     } catch (err: any) {
       alert('Failed to verify account: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deleteTargetUser) return;
+    const targetId = deleteTargetUser.id || deleteTargetUser._id;
+    if (!targetId) return;
+
+    setDeletingUser(true);
+    setDeleteError(null);
+    try {
+      const res = await apiRequest<{ status: string; message: string }>(`/admin/users/${targetId}`, {
+        method: 'DELETE',
+        token,
+      });
+
+      setBulkMessage({
+        type: 'success',
+        text: res.message || `Account for ${deleteTargetUser.name} (${deleteTargetUser.email}) deactivated successfully.`
+      });
+
+      setUsers((prev) => prev.filter((u) => (u.id || u._id) !== targetId));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+      setDeleteTargetUser(null);
+      setTimeout(() => setBulkMessage(null), 4000);
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Failed to deactivate user account.');
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -577,10 +611,20 @@ export const UserManagement: React.FC = () => {
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                               u.status === 'SUSPENDED'
                                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
-                                : 'border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
                             }`}
                           >
                             {u.status === 'SUSPENDED' ? 'Reactivate' : 'Suspend'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteTargetUser(u);
+                            }}
+                            className="p-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-200 transition-all cursor-pointer"
+                            title="Deactivate / Delete User Account"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>
@@ -948,6 +992,72 @@ export const UserManagement: React.FC = () => {
               >
                 {bulkProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
                 Confirm {bulkAction}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single User Deletion Confirmation Modal */}
+      {deleteTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-white/10 p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Deactivate User Account</h3>
+                <p className="text-xs text-slate-400">Irreversible access revocation with historical preservation</p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-white/5 bg-slate-950/60 p-4 mb-4 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-400">User Name:</span>
+                <span className="font-semibold text-white">{deleteTargetUser.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Email Address:</span>
+                <span className="font-semibold text-cyan-400">{deleteTargetUser.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Role:</span>
+                <span className="font-semibold text-slate-300">{deleteTargetUser.role}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-6">
+              Are you sure you want to <strong>safely deactivate</strong> this user account? The user will immediately be barred from signing in. All existing certificates, scorecards, and learning progress will be retained safely for compliance.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTargetUser(null);
+                  setDeleteError(null);
+                }}
+                disabled={deletingUser}
+                className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteUser}
+                disabled={deletingUser}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {deletingUser && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm Deactivation
               </button>
             </div>
           </div>

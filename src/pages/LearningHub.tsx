@@ -99,6 +99,7 @@ const LearningHub = () => {
   const [noteQuizAnswers, setNoteQuizAnswers] = useState<Record<string, number>>({});
   const [noteQuizSubmitted, setNoteQuizSubmitted] = useState(false);
   const [noteQuizResult, setNoteQuizResult] = useState<any>(null);
+  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
 
   // My Saved Notes State
   const [myNotes, setMyNotes] = useState<any[]>([]);
@@ -126,9 +127,13 @@ const LearningHub = () => {
     }
   }, [activeTab]);
 
-  const handleGenerateAiNotes = async () => {
-    const topicToUse = aiNoteTopic.trim() || curriculum?.topics?.[selectedTopicIndex]?.name || 'Core Fundamentals';
+  const handleGenerateAiNotes = async (customTopic?: string, customDomain?: string, customLevel?: string) => {
+    const topicToUse = customTopic || aiNoteTopic.trim() || curriculum?.topics?.[selectedTopicIndex]?.name || 'Core Principles';
+    const domainToUse = customDomain || aiNoteDomain.trim() || curriculum?.domain || 'Academic Career Preparation';
+    const levelToUse = (customLevel as any) || aiNoteLevel || 'Intermediate';
+
     setGeneratingNotes(true);
+    setPermissionModalOpen(false);
     setNoteSaveSuccess(null);
     setNoteQuizAnswers({});
     setNoteQuizSubmitted(false);
@@ -140,9 +145,9 @@ const LearningHub = () => {
         method: 'POST',
         body: JSON.stringify({
           topic: topicToUse,
-          domain: aiNoteDomain || curriculum?.domain || 'General',
+          domain: domainToUse,
           sourceText: aiNoteSourceText.trim(),
-          level: aiNoteLevel,
+          level: levelToUse,
         }),
         token,
       });
@@ -203,18 +208,39 @@ const LearningHub = () => {
     }
   };
 
-  const handleGradeNoteQuiz = () => {
+  const handleGradeNoteQuiz = async () => {
     if (!generatedNote?.quiz) return;
-    let correct = 0;
-    const total = generatedNote.quiz.length;
-    generatedNote.quiz.forEach((q: any) => {
-      if (noteQuizAnswers[q.id] === q.correctAnswer) {
-        correct++;
-      }
-    });
-    const score = Math.round((correct / total) * 100);
-    setNoteQuizResult({ score, correct, total, passed: score >= 70 });
-    setNoteQuizSubmitted(true);
+    try {
+      const res = await apiRequest<any>('/learning/notes/quiz-evaluate', {
+        method: 'POST',
+        body: JSON.stringify({
+          quiz: generatedNote.quiz,
+          answers: noteQuizAnswers,
+        }),
+        token,
+      });
+
+      setNoteQuizResult({
+        score: res.score,
+        correct: res.correctCount,
+        total: res.totalQuestions,
+        passed: res.passed,
+        message: res.message,
+      });
+      setNoteQuizSubmitted(true);
+    } catch {
+      // Offline fallback
+      let correct = 0;
+      const total = generatedNote.quiz.length;
+      generatedNote.quiz.forEach((q: any) => {
+        if (noteQuizAnswers[q.id] === q.correctAnswer) {
+          correct++;
+        }
+      });
+      const score = Math.round((correct / total) * 100);
+      setNoteQuizResult({ score, correct, total, passed: score >= 70 });
+      setNoteQuizSubmitted(true);
+    }
   };
 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -873,68 +899,201 @@ const LearningHub = () => {
                 </div>
               )}
 
-              {/* Generator Input Section */}
-              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Topic / Concept Name</label>
-                    <input
-                      type="text"
-                      value={aiNoteTopic}
-                      onChange={(e) => setAiNoteTopic(e.target.value)}
-                      placeholder={curriculum?.topics?.[selectedTopicIndex]?.name || 'e.g. Distributed Caching'}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                    />
+              {/* Stepper Flow Banner */}
+              <div className="rounded-2xl border border-white/5 bg-slate-950/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/20 text-[10px] font-black text-cyan-400">1</span>
+                    <span className="text-slate-300 font-semibold">{curriculum?.domain || 'Career Discipline'}</span>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Discipline / Career Domain</label>
-                    <input
-                      type="text"
-                      value={aiNoteDomain}
-                      onChange={(e) => setAiNoteDomain(e.target.value)}
-                      placeholder={curriculum?.domain || 'e.g. Medical, HR, Computer Science'}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                    />
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-600 hidden sm:block" />
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/20 text-[10px] font-black text-cyan-400">2</span>
+                    <span className="text-slate-300 font-semibold">{curriculum?.topics?.[selectedTopicIndex]?.name || 'Target Skill'}</span>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Proficiency Target</label>
-                    <select
-                      value={aiNoteLevel}
-                      onChange={(e) => setAiNoteLevel(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs focus:outline-none focus:border-cyan-500"
-                    >
-                      <option value="Beginner">Beginner / Fundamentals</option>
-                      <option value="Intermediate">Intermediate / Industry Standard</option>
-                      <option value="Advanced">Advanced / Senior Diagnostic</option>
-                    </select>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-600 hidden sm:block" />
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/20 text-[10px] font-black text-cyan-400">3</span>
+                    <span className="text-cyan-400 font-semibold">AI Planned Curriculum</span>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-600 hidden sm:block" />
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/20 text-[10px] font-black text-cyan-400">4</span>
+                    <span className="text-slate-300 font-semibold">Student Permission</span>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-600 hidden sm:block" />
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/20 text-[10px] font-black text-cyan-400">5</span>
+                    <span className="text-emerald-400 font-semibold">Quiz (≥ 70% Skill DNA)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Auto-Determined Curriculum Planning Card */}
+              <div className="bg-gradient-to-br from-slate-950 via-slate-900/90 to-cyan-950/20 border border-cyan-500/20 rounded-2xl p-6 space-y-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                      <Compass className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-400">Auto-Determined Academic Profile</div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        {curriculum?.career || 'Target Career'} • <span className="text-slate-400 font-normal">{curriculum?.domain || 'General Discipline'}</span>
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Target Level:</span>
+                    <div className="flex rounded-lg border border-white/10 bg-slate-900 p-0.5">
+                      {(['Beginner', 'Intermediate', 'Advanced'] as const).map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => setAiNoteLevel(lvl)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                            aiNoteLevel === lvl ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
+                {/* Skill Selection - Zero manual typing required */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Optional: Paste Course Material, Syllabus, or Lecture Notes
+                  <label className="block text-xs font-semibold text-slate-300 mb-2">
+                    Select Skill to Plan Curriculum & Generate Notes:
                   </label>
-                  <textarea
-                    rows={2}
-                    value={aiNoteSourceText}
-                    onChange={(e) => setAiNoteSourceText(e.target.value)}
-                    placeholder="Paste textbook excerpts, professor notes, or syllabus bullet points to tailor note generation..."
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {curriculum?.topics?.map((top, idx) => {
+                      const isSelected = selectedTopicIndex === idx;
+                      return (
+                        <button
+                          key={top.name}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTopicIndex(idx);
+                            setAiNoteTopic(top.name);
+                          }}
+                          className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'border-cyan-500/50 bg-cyan-500/10 text-white shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
+                              : 'border-white/5 bg-slate-900/60 text-slate-300 hover:border-white/20 hover:bg-slate-900'
+                          }`}
+                        >
+                          <div className="truncate text-xs">{top.name}</div>
+                          {isSelected ? (
+                            <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0" />
+                          ) : top.isMastered ? (
+                            <Award className="h-4 w-4 text-emerald-400 shrink-0" />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-end">
+                {/* Optional Syllabus or Reference notes */}
+                <div>
+                  <details className="group">
+                    <summary className="text-xs text-slate-400 hover:text-cyan-400 cursor-pointer flex items-center gap-1.5 font-medium select-none">
+                      <ChevronRight className="h-3.5 w-3.5 group-open:rotate-90 transition-transform" />
+                      Optional: Attach specific syllabus excerpt, lecture notes or textbook chapter
+                    </summary>
+                    <div className="mt-2.5">
+                      <textarea
+                        rows={2}
+                        value={aiNoteSourceText}
+                        onChange={(e) => setAiNoteSourceText(e.target.value)}
+                        placeholder="Paste syllabus bullet points or textbook excerpts to further tailor the generated guide..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </details>
+                </div>
+
+                {/* Synthesis Action & Permission Call */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/5">
+                  <div className="text-xs text-slate-400 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <span>AI will structure 13 pedagogical dimensions without copying copyrighted source material.</span>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={handleGenerateAiNotes}
+                    onClick={() => setPermissionModalOpen(true)}
                     disabled={generatingNotes}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 hover:opacity-90 active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {generatingNotes ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    <span>{generatingNotes ? 'Synthesizing 7 Note Artifacts...' : 'Generate AI Study Notes'}</span>
+                    <span>{generatingNotes ? 'Synthesizing 13 Dimensions...' : 'Plan & Generate Study Guide'}</span>
                   </button>
                 </div>
               </div>
+
+              {/* Student Permission Confirmation Modal */}
+              {permissionModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-white/10 p-6 shadow-2xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-3 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                        <Sparkles className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Student Permission Required</h3>
+                        <p className="text-xs text-slate-400">Synthesize Personalized Pedagogical Study Guide</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/5 bg-slate-950/60 p-4 mb-4 text-xs space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Discipline:</span>
+                        <span className="font-semibold text-white">{curriculum?.domain || 'Career Discipline'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Target Role:</span>
+                        <span className="font-semibold text-cyan-400">{curriculum?.career || 'Career Practitioner'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Selected Skill:</span>
+                        <span className="font-semibold text-white">{curriculum?.topics?.[selectedTopicIndex]?.name || 'Core Principles'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Pedagogical Framework:</span>
+                        <span className="font-semibold text-emerald-400">13 Structured Dimensions (Bloom's Taxonomy)</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed mb-6">
+                      By proceeding, you authorize SkillDNA AI to synthesize an original academic study guide tailored to your discipline and career target. Achieving <strong className="text-cyan-400">≥ 70%</strong> on the practice assessment will update your authenticated Skill DNA competency evidence.
+                    </p>
+
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPermissionModalOpen(false)}
+                        disabled={generatingNotes}
+                        className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateAiNotes()}
+                        disabled={generatingNotes}
+                        className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/20 hover:opacity-90 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {generatingNotes && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Grant Permission & Generate Notes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Generated Note View with Artifact Sub-Tabs */}
               {generatedNote && (
@@ -1249,10 +1408,18 @@ const LearningHub = () => {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-between pt-2">
-                          <span className="text-xs text-emerald-400 font-semibold">
-                            ✓ Quiz completed! Skill DNA learning evidence updated.
-                          </span>
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                          {noteQuizResult?.passed ? (
+                            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4" />
+                              Competency Verified ({noteQuizResult.score}%)! Authenticated Skill DNA evidence updated.
+                            </span>
+                          ) : (
+                            <span className="text-xs text-amber-400 font-semibold flex items-center gap-1.5">
+                              <AlertCircle className="w-4 h-4" />
+                              Score: {noteQuizResult?.score}%. Minimum 70% required to update Skill DNA. Review key points and retake.
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={() => {

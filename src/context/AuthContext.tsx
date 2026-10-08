@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { CanonicalRole, normalizeRole, UserStatus } from '../lib/rbac';
+import { apiRequest } from '../lib/api';
 
 export type Role = CanonicalRole | null;
 
@@ -60,11 +61,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Re-verify localStorage once mounted in case of multi-tab updates
     const stored = getStoredAuth();
-    if (stored.user && !authState.user) {
-      setAuthState(stored);
+    if (!stored.token) {
+      setIsLoading(false);
+      return;
     }
+
+    let isMounted = true;
+    const verifySession = async () => {
+      try {
+        const res = await apiRequest<any>('/auth/current-user', {
+          token: stored.token,
+        }, false);
+        if (isMounted && res && res.email) {
+          const normalizedRole = normalizeRole(res.role, res.email);
+          const validatedUser: UserProfile = {
+            ...res,
+            _id: res._id || res.id,
+            role: normalizedRole as Exclude<Role, null>,
+          };
+          setAuthState((prev) => ({
+            ...prev,
+            user: validatedUser,
+            token: stored.token,
+            refreshToken: stored.refreshToken,
+          }));
+          try {
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({ user: validatedUser, token: stored.token, refreshToken: stored.refreshToken })
+            );
+          } catch {}
+        }
+      } catch (err: any) {
+        // If 401 Unauthorized, token has genuinely expired!
+        if (err?.response?.status === 401 || err?.message?.includes('401') || err?.message?.includes('expired')) {
+          console.warn('Session expired, clearing authentication:', err);
+          if (isMounted) {
+            logout();
+          }
+        } else {
+          // Transient network hiccup or backend cold-boot: maintain cached session
+          console.warn('Session verification delayed, maintaining cached session state:', err);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    verifySession();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = (newUser: UserProfile, newToken: string, newRefreshToken?: string) => {

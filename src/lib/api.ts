@@ -1,5 +1,4 @@
 const AUTHORITATIVE_FASTAPI_URL = 'https://skillai-backend.onrender.com/api';
-const AUTHORITATIVE_EXPRESS_URL = 'https://skilldna-backend.onrender.com/api';
 
 export const getApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
@@ -15,14 +14,7 @@ export const getApiBaseUrl = (): string => {
 };
 
 export const getAuthApiBaseUrl = (): string => {
-  const envUrl = (import.meta.env.VITE_AUTH_API_URL || '').trim();
-  if (envUrl && !envUrl.includes('skilldna-backend.onrender.com')) {
-    return envUrl.replace(/\/+$/, '');
-  }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return AUTHORITATIVE_FASTAPI_URL;
-  }
-  return 'http://localhost:8001/api';
+  return getApiBaseUrl();
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -150,41 +142,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
   const method = (options.method || 'GET').toUpperCase();
 
   const { token: _token, ...fetchOptions } = options;
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}${cleanPath}`, {
-      ...fetchOptions,
-      headers,
-    });
-  } catch (netErr) {
-    // If primary network request fails, failover to alternate backend immediately
-    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
-    try {
-      response = await fetch(`${altBase}${cleanPath}`, {
-        ...fetchOptions,
-        headers,
-      });
-    } catch {
-      throw netErr;
-    }
-  }
-
-  // If primary returned 404 or 500, automatically retry on authoritative backend!
-  if (response.status === 404 || response.status === 500) {
-    if (baseUrl !== AUTHORITATIVE_FASTAPI_URL) {
-      try {
-        const altResponse = await fetch(`${AUTHORITATIVE_FASTAPI_URL}${cleanPath}`, {
-          ...fetchOptions,
-          headers,
-        });
-        if (altResponse.ok) {
-          response = altResponse;
-        }
-      } catch {
-        // preserve original response
-      }
-    }
-  }
+  const response = await fetch(`${baseUrl}${cleanPath}`, {
+    ...fetchOptions,
+    headers,
+  });
 
   const text = await response.text();
   let json: any = null;
@@ -199,15 +160,6 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
       const refreshedToken = await refreshAccessToken();
       if (refreshedToken) {
         return apiRequest<T>(path, { ...options, token: refreshedToken }, false);
-      }
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem(STORAGE_KEY);
-        } catch {}
-        if (window.location.pathname !== '/' && window.location.pathname !== '/auth') {
-          window.location.href = '/';
-          return {} as T;
-        }
       }
     }
 
@@ -224,7 +176,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
     } else if (!message) {
       message = `[${method} ${cleanPath}] API request failed with ${response.status}`;
     }
-    throw new Error(message);
+    const err = new Error(message) as Error & { response?: { data: any; status: number } };
+    err.response = { data: json, status: response.status };
+    throw err;
   }
 
   return json as T;
@@ -248,59 +202,17 @@ const requestWithData = async <T>(path: string, config: ApiConfig = {}, method =
   const httpMethod = method.toUpperCase();
 
   const { token: _token, responseType, ...fetchOptions } = config;
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}${cleanPath}`, {
-      ...fetchOptions,
-      method,
-      headers,
-    });
-  } catch (netErr) {
-    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
-    try {
-      response = await fetch(`${altBase}${cleanPath}`, {
-        ...fetchOptions,
-        method,
-        headers,
-      });
-    } catch {
-      throw netErr;
-    }
-  }
-
-  // If primary returned 404, automatically retry on alternate backend!
-  if (response.status === 404) {
-    const altBase = baseUrl.includes('skillai-backend') ? AUTHORITATIVE_EXPRESS_URL : AUTHORITATIVE_FASTAPI_URL;
-    if (altBase !== baseUrl) {
-      try {
-        const altResponse = await fetch(`${altBase}${cleanPath}`, {
-          ...fetchOptions,
-          method,
-          headers,
-        });
-        if (altResponse.ok) {
-          response = altResponse;
-        }
-      } catch {
-        // preserve original response
-      }
-    }
-  }
+  const response = await fetch(`${baseUrl}${cleanPath}`, {
+    ...fetchOptions,
+    method,
+    headers,
+  });
 
   if (!response.ok) {
     if (response.status === 401 && retryOnUnauthorized) {
       const refreshedToken = await refreshAccessToken();
       if (refreshedToken) {
         return requestWithData<T>(path, { ...config, token: refreshedToken }, method, false);
-      }
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem(STORAGE_KEY);
-        } catch {}
-        if (window.location.pathname !== '/' && window.location.pathname !== '/auth') {
-          window.location.href = '/';
-          return { data: {} as T };
-        }
       }
     }
 
