@@ -28,7 +28,6 @@ const CertificateManagementPage = lazy(() => import('./pages/CertificateManageme
 const Feedback = lazy(() => import('./pages/Feedback'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const StudentAccountManagement = lazy(() => import('./components/admin/StudentAccountManagement').then(m => ({ default: m.StudentAccountManagement })));
-const UserManagement = lazy(() => import('./components/admin/UserManagement').then(m => ({ default: m.UserManagement })));
 const CareerChangeManagement = lazy(() => import('./components/admin/CareerChangeManagement').then(m => ({ default: m.CareerChangeManagement })));
 const TopicNotesManagement = lazy(() => import('./components/admin/TopicNotesManagement').then(m => ({ default: m.TopicNotesManagement })));
 const AdminHelpdeskPanel = lazy(() => import('./components/admin/AdminHelpdeskPanel').then(m => ({ default: m.AdminHelpdeskPanel })));
@@ -162,7 +161,7 @@ const AnimatedRoutes = () => {
         >
           <Route index element={<MainAdminDashboard defaultTab="overview" />} />
           <Route path="overview" element={<MainAdminDashboard defaultTab="overview" />} />
-          <Route path="users" element={<UserManagement />} />
+          <Route path="users" element={<StudentAccountManagement />} />
           <Route path="questions" element={<QuestionBankDashboard />} />
           <Route path="career-changes" element={<CareerChangeManagement />} />
           <Route path="topic-notes" element={<TopicNotesManagement />} />

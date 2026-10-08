@@ -20,6 +20,8 @@ interface Certificate {
   strengths: string[];
   improvements: string[];
   pdfUrl?: string;
+  verificationUrl?: string;
+  qrCode?: string;
   sharedWith: Array<{ recruiterEmail: string; sharedAt: string }>;
 }
 
@@ -98,7 +100,7 @@ export const CertificateDisplay: React.FC<CertificateDisplayProps> = ({ certific
   };
 
   const copyVerificationLink = () => {
-    const verifyUrl = `${window.location.origin}/verify/${certificate?.certificateId}`;
+    const verifyUrl = certificate?.verificationUrl || `${window.location.origin}/verify/${certificate?.certificateId}`;
     navigator.clipboard.writeText(verifyUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

@@ -77,7 +77,7 @@ export const readStoredToken = () => {
   return undefined;
 };
 
-const readStoredRefreshToken = () => {
+export const readStoredRefreshToken = () => {
   try {
     const auth = localStorage.getItem(STORAGE_KEY);
     if (auth) {
@@ -91,7 +91,12 @@ const readStoredRefreshToken = () => {
   return undefined;
 };
 
+let refreshInFlight: Promise<string | undefined> | null = null;
+
 const refreshAccessToken = async () => {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
   const refreshToken = readStoredRefreshToken();
   if (!refreshToken) return undefined;
 
@@ -102,7 +107,16 @@ const refreshAccessToken = async () => {
   });
 
   if (!response.ok) {
-    localStorage.removeItem(STORAGE_KEY);
+    const current = localStorage.getItem(STORAGE_KEY);
+    let currentRefreshToken: string | undefined;
+    try {
+      currentRefreshToken = current ? JSON.parse(current).refreshToken : undefined;
+    } catch {
+      currentRefreshToken = undefined;
+    }
+    if (currentRefreshToken === refreshToken) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
     return undefined;
   }
 
@@ -111,12 +125,18 @@ const refreshAccessToken = async () => {
   const parsed = saved ? JSON.parse(saved) : {};
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     ...parsed,
-    user: nextAuth,
     token: nextAuth.token,
     refreshToken: nextAuth.refreshToken ?? refreshToken,
   }));
 
   return nextAuth.token as string | undefined;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, retryOnUnauthorized = true): Promise<T> {

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { CanonicalRole, normalizeRole, UserStatus } from '../lib/rbac';
-import { apiRequest } from '../lib/api';
+import { apiRequest, readStoredRefreshToken, readStoredToken } from '../lib/api';
 
 export type Role = CanonicalRole | null;
 
@@ -58,7 +58,8 @@ const getStoredAuth = (): { user: UserProfile | null; token?: string; refreshTok
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authState, setAuthState] = useState(getStoredAuth);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => Boolean(getStoredAuth().token));
+  const authOperationRef = useRef(0);
 
   useEffect(() => {
     const stored = getStoredAuth();
@@ -68,28 +69,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     let isMounted = true;
+    const operationId = ++authOperationRef.current;
     const verifySession = async () => {
       try {
-        const res = await apiRequest<any>('/auth/current-user', {
+        const res = await apiRequest<any>('/auth/me', {
           token: stored.token,
-        }, false);
-        if (isMounted && res && res.email) {
+        });
+        if (isMounted && operationId === authOperationRef.current && res && res.email) {
           const normalizedRole = normalizeRole(res.role, res.email);
           const validatedUser: UserProfile = {
             ...res,
             _id: res._id || res.id,
             role: normalizedRole as Exclude<Role, null>,
           };
+          const currentToken = readStoredToken() || stored.token;
+          const currentRefreshToken = readStoredRefreshToken() || stored.refreshToken;
           setAuthState((prev) => ({
             ...prev,
             user: validatedUser,
-            token: stored.token,
-            refreshToken: stored.refreshToken,
+            token: currentToken,
+            refreshToken: currentRefreshToken,
           }));
           try {
             localStorage.setItem(
               STORAGE_KEY,
-              JSON.stringify({ user: validatedUser, token: stored.token, refreshToken: stored.refreshToken })
+              JSON.stringify({ user: validatedUser, token: currentToken, refreshToken: currentRefreshToken })
             );
           } catch {}
         }
@@ -97,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // If 401 Unauthorized, token has genuinely expired!
         if (err?.response?.status === 401 || err?.message?.includes('401') || err?.message?.includes('expired')) {
           console.warn('Session expired, clearing authentication:', err);
-          if (isMounted) {
+          if (isMounted && operationId === authOperationRef.current) {
             logout();
           }
         } else {
@@ -105,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.warn('Session verification delayed, maintaining cached session state:', err);
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && operationId === authOperationRef.current) {
           setIsLoading(false);
         }
       }
@@ -118,6 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (newUser: UserProfile, newToken: string, newRefreshToken?: string) => {
+    authOperationRef.current += 1;
     const normalizedRole = normalizeRole(newUser.role, newUser.email);
     const userWithNormalizedRole = { ...newUser, role: normalizedRole as Exclude<Role, null> };
     setAuthState({
@@ -125,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       token: newToken,
       refreshToken: newRefreshToken,
     });
+    setIsLoading(false);
     try {
       localStorage.setItem(
         STORAGE_KEY,
@@ -136,7 +142,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    authOperationRef.current += 1;
     setAuthState({ user: null, token: undefined, refreshToken: undefined });
+    setIsLoading(false);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {

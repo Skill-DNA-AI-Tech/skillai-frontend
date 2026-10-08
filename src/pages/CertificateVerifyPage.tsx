@@ -20,6 +20,7 @@ interface PublicCertificateData {
   issuer: string;
   seal: string;
   verificationUrl: string;
+  qrCode?: string;
   scores?: {
     overall?: number;
     technical?: number;
@@ -50,12 +51,8 @@ const CertificateVerifyPage: React.FC = () => {
         setError(null);
         const baseUrl = getApiBaseUrl();
 
-        // Call public endpoint without auth
-        let res = await fetch(`${baseUrl}/public/certificates/verify/${encodeURIComponent(certificateId)}`);
-        if (!res.ok && res.status !== 404 && res.status !== 410) {
-          // Fallback to legacy alias if needed
-          res = await fetch(`${baseUrl}/verify/${encodeURIComponent(certificateId)}`);
-        }
+        // Call the authoritative Express endpoint without auth.
+        const res = await fetch(`${baseUrl}/certificates/verify/${encodeURIComponent(certificateId)}`);
 
         if (res.status === 404) {
           setError('Certificate not found. The certificate ID does not match any issued credential in the SkillDNA registry.');
@@ -78,7 +75,8 @@ const CertificateVerifyPage: React.FC = () => {
             issueDate: c.issueDate ? new Date(c.issueDate).toLocaleDateString() : 'Active',
             issuer: c.issuer || 'SkillDNA Tech AI Certification Authority',
             seal: 'SKILLDNA AI • VERIFIED AUTHENTIC CERTIFICATE',
-            verificationUrl: window.location.href,
+            verificationUrl: c.verificationUrl || `${window.location.origin}/verify/${c.certificateId || certificateId}`,
+            qrCode: c.qrCode,
             scores: {
               overall: c.overallScore || c.technicalScore || 85,
               technical: c.technicalScore || 85,
@@ -248,7 +246,7 @@ const CertificateVerifyPage: React.FC = () => {
               {/* QR Code Container */}
               <div className="flex flex-col items-center bg-slate-950/80 border border-white/10 rounded-2xl p-3 shadow-lg">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(window.location.href)}`}
+                  src={data.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(data.verificationUrl)}`}
                   alt="Certificate Verification QR Code"
                   className="w-24 h-24 rounded-lg bg-white p-1"
                 />
