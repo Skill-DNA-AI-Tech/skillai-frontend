@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from 'react';
 import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
 import SectionHeader from '../components/SectionHeader';
-import { recommendedLessons, scoreTrend, weakAreas, dynamicWeakAreas, dynamicLessons } from '../data/platform';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -266,14 +265,12 @@ const StudentDashboard = () => {
       ]);
 
   // Dynamically map profile weaknesses to the required format if aiAnalysis is not present
-  const currentWeakAreas: FocusArea[] = aiAnalysis?.weakAreas || (profile?.skillDNA?.weaknesses 
-    ? profile.skillDNA.weaknesses.map((w: string, i: number) => ({ topic: w, score: 50 + (i * 5), action: 'Focus area' }))
-    : weakAreas as FocusArea[]);
+  const currentWeakAreas: FocusArea[] = aiAnalysis?.weakAreas || (profile?.skillDNA?.weaknesses
+    ? profile.skillDNA.weaknesses.map((w: string) => ({ topic: w, score: 0, action: 'Review Career Twin evidence' }))
+    : []);
 
   // Dynamic Lessons based on profile strengths or default
-  const currentLessons: RecommendedLesson[] = aiAnalysis?.recommendedLessons || (profile?.skillDNA?.strengths
-    ? profile.skillDNA.strengths.map((s: string) => ({ domain: 'Career Path', topic: `Advanced ${s}`, type: 'Video', minutes: 25, level: 'Intermediate' }))
-    : recommendedLessons as RecommendedLesson[]);
+  const currentLessons: RecommendedLesson[] = aiAnalysis?.recommendedLessons || [];
 
   // Dynamically generate a score trend leading up to the current real score
   const currentRealScore = profile?.skillDNA?.score ?? 0;
@@ -285,7 +282,7 @@ const StudentDashboard = () => {
     { week: 'W4', skill: Math.max(50, currentRealScore - 10), interview: Math.max(45, currentIntScore - 15), learning: 65 },
     { week: 'W5', skill: Math.max(60, currentRealScore - 5), interview: Math.max(55, currentIntScore - 5), learning: 75 },
     { week: 'W6', skill: currentRealScore, interview: currentIntScore, learning: 85 },
-  ] : scoreTrend;
+  ] : [];
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 overflow-hidden relative">

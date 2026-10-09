@@ -167,6 +167,8 @@ const LearningHub = () => {
       await apiRequest('/learning/notes/save', {
         method: 'POST',
         body: JSON.stringify({
+          noteId: generatedNote.noteId || generatedNote.sharedNoteId,
+          sharedNoteId: generatedNote.sharedNoteId || generatedNote.noteId,
           topic: generatedNote.topic,
           domain: generatedNote.domain,
           summary: generatedNote.summary,
@@ -228,18 +230,8 @@ const LearningHub = () => {
         message: res.message,
       });
       setNoteQuizSubmitted(true);
-    } catch {
-      // Offline fallback
-      let correct = 0;
-      const total = generatedNote.quiz.length;
-      generatedNote.quiz.forEach((q: any) => {
-        if (noteQuizAnswers[q.id] === q.correctAnswer) {
-          correct++;
-        }
-      });
-      const score = Math.round((correct / total) * 100);
-      setNoteQuizResult({ score, correct, total, passed: score >= 70 });
-      setNoteQuizSubmitted(true);
+    } catch (err: any) {
+      alert('Failed to evaluate quiz: ' + (err?.message || 'Unknown error'));
     }
   };
 
