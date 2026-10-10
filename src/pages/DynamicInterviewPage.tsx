@@ -293,8 +293,7 @@ const DynamicInterviewPage = () => {
       const res = await apiRequest<any>(`/career-twin/reassess/${encodeURIComponent(concept)}`, {
         method: 'POST',
         body: JSON.stringify({
-          score: 85,
-          answers: studentAnswer || 'Demonstrated understanding of core principles, trade-offs, and practical industry workflows.',
+          answers: studentAnswer,
         }),
         token,
       });
@@ -302,8 +301,8 @@ const DynamicInterviewPage = () => {
       setReassessmentFeedback((prev) => ({
         ...prev,
         [concept]: {
-          resolved: res.resolved ?? true,
-          score: res.score ?? 85,
+          resolved: res.resolved ?? false,
+          score: res.score,
           message: res.message || `Topic '${concept}' successfully mastered via mini-reassessment!`,
         },
       }));
@@ -314,7 +313,7 @@ const DynamicInterviewPage = () => {
           ...prev,
           weaknessRemediations: (prev.weaknessRemediations || []).map((rem: any) =>
             rem.concept?.toLowerCase() === concept.toLowerCase() || rem.topic?.toLowerCase() === concept.toLowerCase()
-              ? { ...rem, resolved: true, score: Math.max(rem.score || 0, res.score || 85) }
+              ? { ...rem, resolved: res.resolved ?? false, score: res.score ?? rem.score }
               : rem
           ),
         }));

@@ -30,6 +30,7 @@ interface ActiveCurriculumData {
   domain: string;
   description: string;
   topics: TopicProgress[];
+  modules?: Array<{ moduleNumber: number; title: string; topics: TopicProgress[] }>;
   totalTopics: number;
   masteredTopics: number;
   completionPercentage: number;
@@ -44,6 +45,7 @@ const LearningHub = () => {
   const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
   const [selectedSubtopic, setSelectedSubtopic] = useState<string>('');
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
+  const learningLocationKey = user?._id ? `skilldna_learning_location_${user._id}` : 'skilldna_learning_location';
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<TabType>('notes');
@@ -325,11 +327,18 @@ const LearningHub = () => {
       const data = await apiRequest<ActiveCurriculumData>('/learning/active-curriculum', { token });
       setCurriculum(data);
       if (data.topics && data.topics.length > 0) {
-        // Expand first topic by default
-        setExpandedTopics({ [data.topics[0].name]: true });
-        if (data.topics[0].subtopics?.length > 0) {
-          setSelectedSubtopic(data.topics[0].subtopics[0]);
-        }
+        let savedIndex = 0;
+        let savedSubtopic = data.topics[0].subtopics?.[0] || '';
+        try {
+          const saved = JSON.parse(localStorage.getItem(learningLocationKey) || '{}');
+          if (Number.isInteger(saved.topicIndex) && saved.topicIndex >= 0 && saved.topicIndex < data.topics.length) {
+            savedIndex = saved.topicIndex;
+            savedSubtopic = saved.subtopic || data.topics[savedIndex].subtopics?.[0] || '';
+          }
+        } catch { /* use the first lesson when no saved location exists */ }
+        setSelectedTopicIndex(savedIndex);
+        setSelectedSubtopic(savedSubtopic);
+        setExpandedTopics({ [data.topics[savedIndex].name]: true });
       }
     } catch (err: any) {
       console.warn('Failed to fetch active curriculum:', err);
@@ -368,8 +377,11 @@ const LearningHub = () => {
   useEffect(() => {
     if (currentTopic) {
       fetchTopicContent(currentTopic.name, selectedSubtopic);
+      try {
+        localStorage.setItem(learningLocationKey, JSON.stringify({ topicIndex: selectedTopicIndex, topic: currentTopic.name, subtopic: selectedSubtopic }));
+      } catch { /* progress location is best-effort and never blocks learning */ }
     }
-  }, [selectedTopicIndex, selectedSubtopic, curriculum?.career]);
+  }, [selectedTopicIndex, selectedSubtopic, curriculum?.career, currentTopic?.name, learningLocationKey]);
 
   // Request Admin to Add Notes
   const handleRequestContent = async () => {
@@ -606,10 +618,15 @@ const LearningHub = () => {
           <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
             {curriculum.topics.map((t, idx) => {
               const isSelected = idx === selectedTopicIndex;
+              const moduleStart = idx % 2 === 0;
               const isExpanded = expandedTopics[t.name] || false;
 
               return (
-                <div key={t.name} className="rounded-xl overflow-hidden border border-slate-800/80">
+                <div key={t.name} className="space-y-1">
+                  {moduleStart && (
+                    <p className="px-2 pt-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Module {Math.floor(idx / 2) + 1}</p>
+                  )}
+                  <div className="rounded-xl overflow-hidden border border-slate-800/80">
                   <div
                     onClick={() => {
                       setSelectedTopicIndex(idx);
@@ -684,6 +701,7 @@ const LearningHub = () => {
                       })}
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}
@@ -706,11 +724,11 @@ const LearningHub = () => {
               <div className="flex items-center gap-2">
                 {currentTopic?.isMastered ? (
                   <span className="bg-green-500/20 text-green-400 border border-green-500/30 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" /> Topic Mastered (Score: {currentTopic.mcqScore || 80}%)
+                    <CheckCircle className="w-3.5 h-3.5" /> Topic Mastered{currentTopic.mcqScore != null ? ` (Score: ${currentTopic.mcqScore}%)` : ''}
                   </span>
                 ) : currentTopic?.status === 'NEEDS_REVISION' ? (
                   <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Needs Revision (Score: {currentTopic.mcqScore}%)
+                    <AlertTriangle className="w-3.5 h-3.5" /> Needs Revision{currentTopic.mcqScore != null ? ` (Score: ${currentTopic.mcqScore}%)` : ''}
                   </span>
                 ) : (
                   <span className="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1 rounded-full font-semibold">

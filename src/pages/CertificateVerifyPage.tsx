@@ -78,11 +78,11 @@ const CertificateVerifyPage: React.FC = () => {
             verificationUrl: c.verificationUrl || `${window.location.origin}/verify/${c.certificateId || certificateId}`,
             qrCode: c.qrCode,
             scores: {
-              overall: c.overallScore || c.technicalScore || 85,
-              technical: c.technicalScore || 85,
-              communication: c.communicationScore || 80,
-              problemSolving: c.problemSolvingScore || 80,
-              confidence: c.confidenceScore || 80,
+              overall: c.overallScore ?? c.technicalScore,
+              technical: c.technicalScore,
+              communication: c.communicationScore,
+              problemSolving: c.problemSolvingScore,
+              confidence: c.confidenceScore,
             },
             message: json.message,
           });
