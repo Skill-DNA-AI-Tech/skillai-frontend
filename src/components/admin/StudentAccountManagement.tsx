@@ -103,12 +103,12 @@ export const StudentAccountManagement: React.FC = () => {
     studentId: '',
     careerPath: '',
     courseName: '',
-    overallScore: 85,
-    technicalScore: 88,
-    communicationScore: 82,
-    problemSolvingScore: 85,
-    confidenceScore: 84,
-    sessionsCompleted: 3,
+    overallScore: 0,
+    technicalScore: 0,
+    communicationScore: 0,
+    problemSolvingScore: 0,
+    confidenceScore: 0,
+    sessionsCompleted: 0,
     interviewReadinessStatus: 'ADVANCED' as 'READY' | 'ADVANCED' | 'IN_PROGRESS',
     issueDate: new Date().toISOString().split('T')[0],
     officialRemark: 'Outstanding proficiency in domain concepts, technical depth, and professional problem-solving demonstrated during official assessment.',
@@ -242,12 +242,12 @@ export const StudentAccountManagement: React.FC = () => {
       studentId: student._id,
       careerPath: student.career || student.domain || 'Software Development',
       courseName: student.activeCurriculum?.title || student.career || 'Software Engineering Program',
-      overallScore: 85,
-      technicalScore: 88,
-      communicationScore: 82,
-      problemSolvingScore: 86,
-      confidenceScore: 84,
-      sessionsCompleted: 3,
+      overallScore: 0,
+      technicalScore: 0,
+      communicationScore: 0,
+      problemSolvingScore: 0,
+      confidenceScore: 0,
+      sessionsCompleted: 0,
       interviewReadinessStatus: 'ADVANCED',
       issueDate: new Date().toISOString().split('T')[0],
       officialRemark: `Candidate ${student.name} demonstrated outstanding technical competency in ${student.career || 'Software Engineering'}, precise analytical reasoning, and structured professional articulation.`,
@@ -259,8 +259,8 @@ export const StudentAccountManagement: React.FC = () => {
     e.preventDefault();
     setCertError(null);
 
-    if (certForm.overallScore < 75) {
-      setCertError('Verified certificate issuance requires an overall score of at least 75%.');
+    if (certForm.overallScore < 0) {
+      setCertError('Scores are read from the student assessment and interview evidence; they cannot be manually fabricated.');
       return;
     }
 
@@ -804,10 +804,10 @@ export const StudentAccountManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
-                  <label className="text-slate-400 text-[11px] font-semibold mb-1 block">Overall Score (Min 75%) *</label>
+                  <label className="text-slate-400 text-[11px] font-semibold mb-1 block">Overall Score (verified from evidence)</label>
                   <input
                     type="number"
-                    min="75"
+                    min="0"
                     max="100"
                     required
                     value={certForm.overallScore}
@@ -1024,7 +1024,7 @@ export const StudentAccountManagement: React.FC = () => {
                 />
                 <span>
                   <strong className="text-white font-semibold block mb-0.5">Administrator Authorization & Confirmation:</strong>
-                  I officially confirm that I have reviewed the assessment data, verified the minimum passing score (75%+), and authorize the permanent ledger registration, QR code generation, and issuance of this certificate to {selectedStudentForCert.name}.
+                  I officially confirm that I have reviewed the assessment data, verified the 50% minimum in each component and 70% combined average, and authorize the permanent ledger registration, QR code generation, and issuance of this certificate to {selectedStudentForCert.name}.
                 </span>
               </label>
             </div>

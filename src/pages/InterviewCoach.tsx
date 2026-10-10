@@ -259,7 +259,9 @@ const InterviewCoach = () => {
     const estimatedWpm = Math.max(10, Math.min(180, Math.round((userWordsCount / Math.max(1, estimatedDuration / 60)))));
 
     try {
-      const demoToken = token || "demo-token";
+      if (!token) {
+        throw new Error('Sign in before analyzing an interview.');
+      }
       const data = await apiRequest<any>('/ai/interview', {
         method: 'POST',
         body: JSON.stringify({
@@ -268,7 +270,7 @@ const InterviewCoach = () => {
           durationSeconds: estimatedDuration,
           wordsPerMinute: estimatedWpm,
         }),
-        token: demoToken
+        token
       });
       setResults(data);
       setInterviewState('finished');

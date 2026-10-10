@@ -50,7 +50,7 @@ const CertificateManagementPage: React.FC = () => {
     try {
       const res = await api.get('/api/mcq/history');
       if (res.data?.assessments && Array.isArray(res.data.assessments)) {
-        const eligible = res.data.assessments.filter((a: any) => a.overallScore >= 75);
+        const eligible = res.data.assessments.filter((a: any) => a.componentMinimumMet);
         setEligibleAssessments(eligible);
       }
     } catch (err) {
@@ -146,13 +146,13 @@ const CertificateManagementPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-extrabold text-white">Verified Certificates</h1>
               <p className="text-xs text-slate-400 mt-0.5">
-                Cryptographically validated certificates earned through verified assessments with scores &ge; 75%.
+                Cryptographically validated certificates require verified assessment and interview evidence.
               </p>
             </div>
           </div>
 
           <button
-            onClick={() => handleClaimCertificate()}
+            onClick={() => { window.location.href = '/interview'; }}
             disabled={claiming}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold px-5 py-2.5 rounded-xl shadow-lg transition-all disabled:opacity-50 text-sm"
           >
@@ -162,7 +162,7 @@ const CertificateManagementPage: React.FC = () => {
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" /> Claim Certificate (Score &ge; 75%)
+                <Sparkles className="w-4 h-4" /> Complete Certificate Requirements
               </>
             )}
           </button>
@@ -176,7 +176,7 @@ const CertificateManagementPage: React.FC = () => {
           </div>
         )}
 
-        {/* 75% Requirement Explanatory Banner */}
+        {/* Completion requirement banner */}
         <div className="p-4 rounded-xl bg-slate-900/70 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -184,7 +184,7 @@ const CertificateManagementPage: React.FC = () => {
               Automated Server Verification Protocol
             </div>
             <p className="text-xs text-slate-300">
-              Certificates cannot be manually typed or fabricated. Scores are verified directly by backend grading models. A minimum composite score of <strong>75/100</strong> is strictly enforced.
+              Certificates cannot be manually typed or fabricated. Scores are verified directly by backend grading models. Each component must be at least <strong>50/100</strong> and the combined average must be at least <strong>70/100</strong>.
             </p>
           </div>
 
@@ -219,7 +219,7 @@ const CertificateManagementPage: React.FC = () => {
             <Award className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-white">No Certificates Claimed Yet</h3>
             <p className="text-slate-400 text-xs mt-1 max-w-md mx-auto">
-              Complete an AI Interview Assessment or Domain MCQ Assessment with a score of 75% or higher to automatically qualify for your official SkillDNA Certificate.
+              Complete both a domain assessment and an AI interview. Each must reach 50% and their combined average must reach 70% before the backend issues a certificate.
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <Link

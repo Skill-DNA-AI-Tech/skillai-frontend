@@ -60,7 +60,7 @@ const LearningHub = () => {
   const [mcqSessionId, setMcqSessionId] = useState<string | null>(null);
   const [mcqQuestions, setMcqQuestions] = useState<any[]>([]);
   const [mcqActiveIndex, setMcqActiveIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [mcqResult, setMcqResult] = useState<any>(null);
   const [submittingMcq, setSubmittingMcq] = useState(false);
 
@@ -413,8 +413,11 @@ const LearningHub = () => {
         token,
       });
 
-      setMcqSessionId(data.sessionId);
-      setMcqQuestions(data.questions || []);
+      setMcqSessionId(data.assessmentId || data.sessionId);
+      setMcqQuestions((data.questions || []).map((question: any) => ({
+        ...question,
+        questionId: String(question.questionId || question.id),
+      })));
       setMcqActiveIndex(0);
       setSelectedAnswers({});
       setMcqResult(null);
@@ -426,17 +429,17 @@ const LearningHub = () => {
     }
   };
 
-  const handleSelectOption = (questionId: string, optionText: string) => {
+  const handleSelectOption = (questionId: string, optionIndex: number) => {
     setSelectedAnswers((prev) => ({
       ...prev,
-      [questionId]: optionText,
+      [questionId]: optionIndex,
     }));
   };
 
   const handleSubmitMcq = async () => {
     if (!mcqSessionId) return;
 
-    const unanswered = mcqQuestions.filter((q) => !selectedAnswers[q.questionId]);
+    const unanswered = mcqQuestions.filter((q) => selectedAnswers[q.questionId] === undefined);
     if (unanswered.length > 0) {
       const confirmSubmit = window.confirm(
         `You have ${unanswered.length} unanswered question(s). Unanswered questions receive 0 marks. Submit now?`
@@ -446,17 +449,11 @@ const LearningHub = () => {
 
     setSubmittingMcq(true);
     try {
-      const answersPayload = mcqQuestions.map((q) => ({
-        questionId: q.questionId,
-        selectedOption: selectedAnswers[q.questionId] || '',
-        timeTakenSeconds: 45,
-      }));
-
       const resultData = await apiRequest<any>('/mcq/submit', {
         method: 'POST',
         body: JSON.stringify({
-          sessionId: mcqSessionId,
-          answers: answersPayload,
+          assessmentId: mcqSessionId,
+          answers: selectedAnswers,
         }),
         token,
       });
@@ -573,7 +570,7 @@ const LearningHub = () => {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-3xl">
-              {curriculum.description || 'Structured learning roadmap with verified admin notes, domain question banks, and adaptive assessments enforcing the strict 75% passing standard.'}
+              {curriculum.description || 'Structured learning roadmap with verified admin notes, domain question banks, and adaptive assessments enforcing the 70% combined completion standard.'}
             </p>
           </div>
 
@@ -602,7 +599,7 @@ const LearningHub = () => {
               Curriculum Topics
             </h2>
             <span className="text-[11px] text-slate-400 font-mono">
-              75% Pass Standard
+              50% Component Minimum
             </span>
           </div>
 
@@ -636,12 +633,12 @@ const LearningHub = () => {
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {t.status === 'PASSED' && (
-                        <span className="bg-green-500/20 text-green-400 p-1 rounded-full" title="Mastered (>= 75%)">
+                        <span className="bg-green-500/20 text-green-400 p-1 rounded-full" title="Mastered (>= 70% practice score)">
                           <CheckCircle className="w-3 h-3" />
                         </span>
                       )}
                       {t.status === 'NEEDS_REVISION' && (
-                        <span className="bg-amber-500/20 text-amber-300 p-1 rounded-full" title="Needs Revision (< 75%)">
+                        <span className="bg-amber-500/20 text-amber-300 p-1 rounded-full" title="Needs Revision (< 70% practice score)">
                           <AlertTriangle className="w-3 h-3" />
                         </span>
                       )}
@@ -730,7 +727,7 @@ const LearningHub = () => {
                 { id: 'ai-notes', label: 'AI Study Notes', icon: Sparkles },
                 { id: 'my-notes', label: 'My Notes', icon: BookOpen },
                 { id: 'resources', label: 'Learning Resources', icon: Video },
-                { id: 'mcq', label: 'MCQ Practice (75% Rule)', icon: ListChecks },
+                { id: 'mcq', label: 'MCQ Practice (50% Component Minimum)', icon: ListChecks },
                 { id: 'interview', label: 'Mock Interview', icon: Award },
                 { id: 'remediation', label: 'Weakness Remediation', icon: Compass },
               ].map((tab) => {
@@ -1616,7 +1613,7 @@ const LearningHub = () => {
             </div>
           )}
 
-          {/* TAB 3: MCQ ASSESSMENT (STRICT 75% RULE) */}
+          {/* TAB 3: MCQ ASSESSMENT (50% COMPONENT MINIMUM) */}
           {activeTab === 'mcq' && (
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
               {mcqMode === 'setup' && (
@@ -1631,9 +1628,9 @@ const LearningHub = () => {
                       {selectedSubtopic && ` (${selectedSubtopic})`}
                     </p>
                     <div className="mt-3 inline-block bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 text-xs text-amber-200">
-                      ⚡ <strong>Mastery Threshold: 75%</strong>
+                      ⚡ <strong>Assessment Component Minimum: 50%</strong>
                       <p className="text-[11px] text-amber-300/80 mt-0.5">
-                        Score $\ge 75\%$ marks the topic as Mastered. Scores &lt; 75% log weak concepts into your Career Twin for remediation.
+                        Score &gt;= 50% satisfies the assessment component minimum. Use the combined 70% completion rule for certificate eligibility.
                       </p>
                     </div>
                   </div>
@@ -1679,11 +1676,11 @@ const LearningHub = () => {
                   {/* Options */}
                   <div className="space-y-2.5">
                     {currentMcqQuestion.options.map((optionText: string, oIdx: number) => {
-                      const isSelected = selectedAnswers[currentMcqQuestion.questionId] === optionText;
+                      const isSelected = selectedAnswers[currentMcqQuestion.questionId] === oIdx;
                       return (
                         <div
                           key={oIdx}
-                          onClick={() => handleSelectOption(currentMcqQuestion.questionId, optionText)}
+                          onClick={() => handleSelectOption(currentMcqQuestion.questionId, oIdx)}
                           className={`p-3.5 rounded-xl border cursor-pointer transition flex items-center gap-3 ${
                             isSelected
                               ? 'bg-cyan-500/15 border-cyan-400 text-white font-medium'
@@ -1755,14 +1752,14 @@ const LearningHub = () => {
                         {mcqResult.overallScore}%
                       </span>
                       <p className="text-xs uppercase font-bold tracking-wider mt-1 text-slate-300">
-                        Passing Standard: 75% • Your Status: {mcqResult.passStatus}
+                        Component Minimum: 50% • Your Status: {mcqResult.passStatus}
                       </p>
                     </div>
 
                     <p className="text-xs text-slate-300 max-w-md mx-auto">
                       {mcqResult.passStatus === 'PASS'
                         ? `Congratulations! You achieved ${mcqResult.overallScore}% and mastered ${currentTopic?.name}. Your Skill DNA profile has been updated.`
-                        : `Score is below the 75% standard. Weak concepts have been diagnosed and logged into your Career Twin. Complete the remedial review before retaking.`}
+                        : `Score is below the 50% component minimum. Weak concepts have been diagnosed and logged into your Career Twin. Complete the remedial review before retaking.`}
                     </p>
 
                     <div className="flex items-center justify-center gap-3 pt-2">
@@ -1842,7 +1839,7 @@ const LearningHub = () => {
                 <div className="mt-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1 text-left">
                   <p>• Progressive difficulty (Basic → Intermediate → Advanced)</p>
                   <p>• Real-time speech transcription &amp; semantic evaluation</p>
-                  <p>• 75/100 passing threshold with Career Twin sync</p>
+                  <p>• 50/100 component minimum with Career Twin sync</p>
                 </div>
               </div>
 
@@ -1864,7 +1861,7 @@ const LearningHub = () => {
                   Targeted Weakness Remediation &amp; Career Twin Diagnosis
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Personalized review modules for concepts where your score was below the 75% standard threshold.
+                  Personalized review modules for concepts where your score was below the 50% component minimum.
                 </p>
               </div>
 
@@ -1881,7 +1878,7 @@ const LearningHub = () => {
                           <span className="text-sm font-bold text-white">{rem.concept}</span>
                         </div>
                         <span className="text-xs font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
-                          Score: {rem.score}% (&lt; 75%)
+                          Score: {rem.score}% (&lt; 50% component minimum)
                         </span>
                       </div>
 
@@ -1948,7 +1945,7 @@ const LearningHub = () => {
                   <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto" />
                   <p className="text-sm font-semibold text-white">No Active Weakness Remediation Needed</p>
                   <p className="text-xs max-w-sm mx-auto">
-                    You have not scored below 75% on this topic. Practice MCQs or mock interviews to continuously refine your knowledge.
+                    You have not scored below the 50% component minimum on this topic. Practice MCQs or mock interviews to continuously refine your knowledge.
                   </p>
                 </div>
               )}
@@ -2041,10 +2038,10 @@ const LearningHub = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSendChatMessage(undefined, 'How does the 75% passing threshold work?')}
+                  onClick={() => handleSendChatMessage(undefined, 'How do the 50% component minimum and 70% combined completion thresholds work?')}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded whitespace-nowrap border border-slate-700"
                 >
-                  75% rule explained
+                  Completion thresholds explained
                 </button>
                 <button
                   type="button"

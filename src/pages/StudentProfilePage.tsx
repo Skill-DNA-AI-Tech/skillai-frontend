@@ -257,13 +257,13 @@ const StudentProfilePage: React.FC = () => {
     const skillDNA = (profile as any)?.skillDNA || {};
     setFormData({
       careerPath: profile?.career || (profile as any)?.preferredRoles?.[0] || (profile as any)?.branch || 'Software Engineering',
-      technicalScore: skillDNA.technicalScore || 75,
-      communicationScore: skillDNA.communicationScore || 75,
-      problemSolvingScore: skillDNA.projectsScore || skillDNA.aptitudeScore || 75,
-      confidenceScore: skillDNA.confidenceScore || 75,
+      technicalScore: skillDNA.technicalScore || 0,
+      communicationScore: skillDNA.communicationScore || 0,
+      problemSolvingScore: skillDNA.projectsScore || skillDNA.aptitudeScore || 0,
+      confidenceScore: skillDNA.confidenceScore || 0,
       sessionsCompleted: actualSessions,
-      strengths: skillDNA.strengths?.join(', ') || 'Problem Solving, Architecture',
-      improvements: skillDNA.weaknesses?.join(', ') || 'Communication Depth',
+      strengths: skillDNA.strengths?.join(', ') || '',
+      improvements: skillDNA.weaknesses?.join(', ') || '',
     });
     setShowCreateModal(true);
   };

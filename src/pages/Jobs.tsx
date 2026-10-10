@@ -31,10 +31,12 @@ const Jobs = () => {
     
     setLoading(true);
     try {
-      const demoToken = token || "demo-token";
+      if (!token) {
+        throw new Error('Sign in before generating job matches.');
+      }
       const profileSkills = profile.deepProfile?.keySkills?.split(',') || profile.skillDNA?.skills || [];
-      const commScore = profile.skillDNA?.communicationScore || 70;
-      const intScore = profile.skillDNA?.confidenceScore || 70;
+      const commScore = profile.skillDNA?.communicationScore || 0;
+      const intScore = profile.skillDNA?.confidenceScore || 0;
 
       const processedJobs = await Promise.all(MOCK_JOBS.map(async (job) => {
         const matchData = await apiRequest<any>('/ai/jobs/match', {
@@ -47,7 +49,7 @@ const Jobs = () => {
             communicationScore: commScore,
             interviewScore: intScore
           }),
-          token: demoToken
+          token
         });
         return { ...job, ...matchData };
       }));

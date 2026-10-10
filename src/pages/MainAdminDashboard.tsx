@@ -1014,7 +1014,7 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                         <Shield className="h-3.5 w-3.5" /> Full Platform Access
                       </span>
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                        <Award className="h-3.5 w-3.5" /> 75%+ Cert Gate Enforced
+                        <Award className="h-3.5 w-3.5" /> 50% + 70% Certificate Gate Enforced
                       </span>
                     </div>
                     <h2 className="text-2xl font-black text-white tracking-tight">Super Admin Executive Center</h2>
@@ -1080,7 +1080,7 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                     </p>
                     <div className="flex items-baseline justify-between mt-2">
                       <span className="text-3xl font-extrabold text-white">{overview?.totalCertificates || 0}</span>
-                      <span className="text-xs font-semibold text-amber-400">&ge;75% Gate</span>
+                      <span className="text-xs font-semibold text-amber-400">50% component / 70% combined</span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-1">Publicly verifiable ledgers</p>
                   </div>
@@ -2183,7 +2183,7 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                         All Issued Certificates Ledger ({allCertificates.length})
                       </h3>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Only candidates with verified scores &ge; 75% are authorized and recorded in this ledger.
+                        Only students with verified assessment and interview evidence, 50% minimum per component and 70% combined, are authorized and recorded in this ledger.
                       </p>
                     </div>
 

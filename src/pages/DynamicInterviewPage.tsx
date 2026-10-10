@@ -551,9 +551,9 @@ const DynamicInterviewPage = () => {
   const claimCertificate = async () => {
     if (!report) return;
 
-    const overallScore = report.overallScore ?? report.averageScores?.overallScore ?? 0;
-    if (overallScore < 75) {
-      alert(`Certificate Eligibility: A minimum overall score of 75% is required to claim a SkillDNA Certificate (Your score: ${overallScore}%). Review your stuck topics in Career Twin, practice, and retake the interview to qualify.`);
+    const completion = report.completion || report.finalReport?.componentMinimums;
+    if (!completion?.eligible) {
+      alert(`Certificate Eligibility: you need at least 50% in both the assessment and interview, plus a combined average of at least 70%. Assessment: ${completion?.assessmentScore ?? 'not completed'}%, interview: ${completion?.interviewScore ?? report.overallScore ?? 'not completed'}%.`);
       return;
     }
 
@@ -565,10 +565,11 @@ const DynamicInterviewPage = () => {
         body: JSON.stringify({
           sessionId,
           careerPath: report.role || report.domain || setupForm.field || 'Career Development',
-          technicalScore: Math.round(scores.technical ?? scores.averageTechnical ?? 75),
-          communicationScore: Math.round(scores.communication ?? scores.averageCommunication ?? 75),
-          problemSolvingScore: Math.round(scores.problemSolving ?? scores.averageCorrectness ?? 75),
-          confidenceScore: Math.round(scores.confidence ?? scores.averageConfidence ?? 75),
+          assessmentId: report.assessmentId,
+          technicalScore: Math.round(scores.technical ?? scores.averageTechnical),
+          communicationScore: Math.round(scores.communication ?? scores.averageCommunication),
+          problemSolvingScore: Math.round(scores.problemSolving ?? scores.averageCorrectness),
+          confidenceScore: Math.round(scores.confidence ?? scores.averageConfidence),
           sessionsCompleted: 1,
           strengths: report.strengthAreas || [],
           improvements: report.weakAreas || [],
@@ -646,7 +647,8 @@ const DynamicInterviewPage = () => {
   };
 
   const currentOverallScore = report ? (report.overallScore ?? report.averageScores?.overallScore ?? 0) : 0;
-  const isEligibleForCertificate = currentOverallScore >= 75;
+  const completion = report?.completion || report?.finalReport?.componentMinimums;
+  const isEligibleForCertificate = Boolean(completion?.eligible);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -800,7 +802,7 @@ const DynamicInterviewPage = () => {
                 <div className="flex gap-3">
                   <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-emerald-500/20 text-emerald-400 font-bold text-xs">5</span>
                   <div>
-                    <span className="font-semibold text-white">75%+ Certificate Threshold:</span> Only candidates earning an overall composite score of 75% or higher qualify for a verified SkillDNA certificate.
+                    <span className="font-semibold text-white">Certificate Threshold:</span> Both components must be at least 50%, and their combined average must be at least 70%, to qualify for a verified SkillDNA certificate.
                   </div>
                 </div>
               </div>
@@ -1238,13 +1240,13 @@ const DynamicInterviewPage = () => {
 
             <div className="text-right">
               <div className="text-xs uppercase tracking-wider text-slate-400">Composite Score</div>
-              <div className={`text-3xl font-extrabold ${currentOverallScore >= 75 ? 'text-emerald-400' : 'text-amber-400'}`}>
+              <div className={`text-3xl font-extrabold ${isEligibleForCertificate ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {currentOverallScore}%
               </div>
               <span className={`text-[11px] font-bold px-3 py-1 rounded-full border tracking-wide uppercase ${
                 isEligibleForCertificate ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
               }`}>
-                {isEligibleForCertificate ? 'PASS (>= 75/100)' : 'FAIL (< 75/100)'}
+                {isEligibleForCertificate ? 'PASS (50% component minimums / 70% combined)' : 'FAIL (component minimum or combined threshold not met)'}
               </span>
             </div>
           </div>
@@ -1763,7 +1765,7 @@ const DynamicInterviewPage = () => {
                   SkillDNA Verified Certificate
                 </h4>
                 <p className="text-xs text-slate-400 mb-4">
-                  Official verifiable credential with digital signature and public verification ledger. Requires minimum 75% score.
+                  Official verifiable credential with digital signature and public verification ledger. Requires 50% minimum in both components and 70% combined.
                 </p>
 
                 {claimedCertificate ? (
@@ -1798,10 +1800,10 @@ const DynamicInterviewPage = () => {
                       <div className="p-3.5 rounded-lg bg-rose-950/30 border border-rose-500/30 text-xs text-rose-200 space-y-1.5">
                         <div className="font-bold text-rose-300 flex items-center gap-1.5">
                           <ShieldAlert className="h-4 w-4 text-rose-400" />
-                          Certificate Locked (Score: {currentOverallScore}% / 75% required)
+                          Certificate Locked (Assessment + interview thresholds not met)
                         </div>
                         <p className="text-[11px] text-slate-300">
-                          A minimum composite score of 75% is required to earn an official SkillDNA certificate. Please review your stuck topics in the improvement plan above, practice, and re-attempt to qualify.
+                          A minimum of 50% is required in both the assessment and interview, with a combined average of at least 70%. Review the evidence-based improvement plan and re-attempt the missing component.
                         </p>
                       </div>
                     ) : (
@@ -1811,7 +1813,7 @@ const DynamicInterviewPage = () => {
                           Eligible for Verified Certification!
                         </div>
                         <p className="text-[11px] text-slate-300 mt-1">
-                          Congratulations! Your composite score of {currentOverallScore}% satisfies the 75%+ threshold.
+                          Congratulations! Your verified assessment and interview scores satisfy the 50% component and 70% combined thresholds.
                         </p>
                       </div>
                     )}
@@ -1833,7 +1835,7 @@ const DynamicInterviewPage = () => {
                       ) : (
                         <>
                           <Award className="h-4 w-4" />
-                          {isEligibleForCertificate ? 'Claim Verified Certificate' : 'Score 75%+ to Unlock Certificate'}
+                          {isEligibleForCertificate ? 'Claim Verified Certificate' : 'Complete 50% + 50% and 70% combined to Unlock'}
                         </>
                       )}
                     </button>

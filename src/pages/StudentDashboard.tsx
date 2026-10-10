@@ -154,12 +154,13 @@ const StudentDashboard = () => {
     setIsAnalyzing(true);
     
     try {
-      // Mock user token for local demo if missing
-      const demoToken = token || "demo-token";
+      if (!token) {
+        throw new Error('Your authenticated session is required for AI profile analysis.');
+      }
       const data = await apiRequest<DashboardAnalysis>('/ai/deep-analysis', {
         method: 'POST',
         body: JSON.stringify(deepProfile),
-        token: demoToken
+        token
       });
       setAiAnalysis(data);
       setShowSuccessToast(true);
@@ -168,7 +169,7 @@ const StudentDashboard = () => {
       // Save profile to backend DB
       const parseAcademicMarks = (marksStr: string): number => {
         const parsed = parseFloat(marksStr);
-        if (isNaN(parsed)) return 75;
+        if (isNaN(parsed)) return 0;
         if (parsed <= 10) return parsed * 10;
         return parsed;
       };
@@ -207,9 +208,7 @@ const StudentDashboard = () => {
       }
     } catch (err) {
       console.error("AI Analysis failed:", err);
-      // Even if AI fails, let them pass
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+      setError(err instanceof Error ? err.message : 'AI analysis failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -272,17 +271,7 @@ const StudentDashboard = () => {
   // Dynamic Lessons based on profile strengths or default
   const currentLessons: RecommendedLesson[] = aiAnalysis?.recommendedLessons || [];
 
-  // Dynamically generate a score trend leading up to the current real score
-  const currentRealScore = profile?.skillDNA?.score ?? 0;
-  const currentIntScore = profile?.skillDNA?.confidenceScore ?? 0;
-  const dynamicScoreTrend = currentRealScore > 0 ? [
-    { week: 'W1', skill: Math.max(20, currentRealScore - 40), interview: Math.max(15, currentIntScore - 45), learning: 30 },
-    { week: 'W2', skill: Math.max(30, currentRealScore - 30), interview: Math.max(25, currentIntScore - 35), learning: 45 },
-    { week: 'W3', skill: Math.max(40, currentRealScore - 20), interview: Math.max(35, currentIntScore - 25), learning: 55 },
-    { week: 'W4', skill: Math.max(50, currentRealScore - 10), interview: Math.max(45, currentIntScore - 15), learning: 65 },
-    { week: 'W5', skill: Math.max(60, currentRealScore - 5), interview: Math.max(55, currentIntScore - 5), learning: 75 },
-    { week: 'W6', skill: currentRealScore, interview: currentIntScore, learning: 85 },
-  ] : [];
+  const dynamicScoreTrend: Array<{ week: string; skill: number; interview: number; learning: number }> = [];
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 overflow-hidden relative">
