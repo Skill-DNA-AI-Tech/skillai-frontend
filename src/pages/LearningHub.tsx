@@ -6,6 +6,7 @@ import {
   Bookmark, Copy, Search, Trash2, Download
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import SectionHeader from '../components/SectionHeader';
@@ -35,6 +36,41 @@ interface ActiveCurriculumData {
   masteredTopics: number;
   completionPercentage: number;
 }
+
+const NoteWatermarkedSurface = ({ children }: { children: ReactNode }) => (
+  <div className="relative isolate overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/70">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden select-none"
+    >
+      <span className="-rotate-12 whitespace-nowrap text-[clamp(4rem,13vw,10rem)] font-black uppercase tracking-[0.22em] text-cyan-100 opacity-[0.035]"
+        style={{ WebkitTextStroke: '1px rgba(165,243,252,0.12)' }}
+      >
+        SkillDNA AI
+      </span>
+    </div>
+    <div className="relative z-10">{children}</div>
+  </div>
+);
+
+const StructuredNoteText = ({ text }: { text?: string }) => {
+  const lines = String(text || '').split(/\r?\n/);
+  return (
+    <div className="space-y-3 text-sm leading-7 text-slate-200 break-words">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={index} className="h-1" aria-hidden="true" />;
+        const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+        if (heading) return <h4 key={index} className="pt-3 text-base font-bold tracking-tight text-cyan-200">{heading[1]}</h4>;
+        const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+        if (bullet) return <p key={index} className="flex items-start gap-3 pl-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" /><span>{bullet[1]}</span></p>;
+        const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+        if (numbered) return <p key={index} className="flex items-start gap-3 pl-2"><span className="mt-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-500/15 text-[10px] font-bold text-cyan-300">{trimmed.match(/^\d+/)?.[0]}</span><span>{numbered[1]}</span></p>;
+        return <p key={index}>{line}</p>;
+      })}
+    </div>
+  );
+};
 
 const LearningHub = () => {
   const { token, user } = useAuth();
@@ -777,7 +813,8 @@ const LearningHub = () => {
                   <Loader2 className="w-5 h-5 animate-spin text-cyan-400" /> Loading topic notes...
                 </div>
               ) : topicContent?.hasNotes && topicContent.note ? (
-                <div className="space-y-6">
+                <NoteWatermarkedSurface>
+                <div className="space-y-6 p-5">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                     <span className="text-xs bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded-full font-semibold">
                       Verified Admin Study Notes
@@ -788,8 +825,8 @@ const LearningHub = () => {
                   </div>
 
                   {/* Notes Markdown / Content */}
-                  <div className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed whitespace-pre-line bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
-                    {topicContent.note.content}
+                  <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+                    <StructuredNoteText text={topicContent.note.content} />
                   </div>
 
                   {/* Key Takeaways */}
@@ -830,6 +867,7 @@ const LearningHub = () => {
                     </div>
                   )}
                 </div>
+                </NoteWatermarkedSurface>
               ) : (
                 <div className="py-12 text-center max-w-md mx-auto space-y-4">
                   <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400">
@@ -1157,6 +1195,7 @@ const LearningHub = () => {
                     ))}
                   </div>
 
+                  <NoteWatermarkedSurface>
                   {/* SUBTAB 1: SUMMARY */}
                   {noteActiveSubtab === 'summary' && (
                     <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-4">
@@ -1206,10 +1245,56 @@ const LearningHub = () => {
 
                   {/* SUBTAB 2: DETAILED NOTES */}
                   {noteActiveSubtab === 'detailed' && (
-                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5">
-                      <div className="prose prose-invert max-w-none text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-                        {generatedNote.detailedNotes}
-                      </div>
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 space-y-6">
+                      <StructuredNoteText text={generatedNote.detailedNotes} />
+
+                      {generatedNote.examples?.length > 0 && (
+                        <section className="border-t border-slate-800 pt-5 space-y-3">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-300">Worked Examples</h4>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {generatedNote.examples.map((example: any, idx: number) => (
+                              <article key={idx} className="rounded-xl border border-cyan-500/15 bg-cyan-950/15 p-4 space-y-2">
+                                <h5 className="text-sm font-bold text-white">{example.title || `Example ${idx + 1}`}</h5>
+                                <p className="text-xs leading-relaxed text-slate-300"><strong className="text-cyan-300">Context:</strong> {example.context}</p>
+                                <p className="text-xs leading-relaxed text-slate-200"><strong className="text-emerald-300">Why it works:</strong> {example.explanation}</p>
+                              </article>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      {generatedNote.realWorldCases?.length > 0 && (
+                        <section className="border-t border-slate-800 pt-5 space-y-3">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-violet-300">Case-Based Application</h4>
+                          <div className="space-y-3">
+                            {generatedNote.realWorldCases.map((item: any, idx: number) => (
+                              <article key={idx} className="rounded-xl border border-violet-500/15 bg-violet-950/10 p-4 text-xs leading-relaxed">
+                                <p className="font-semibold text-white">{item.case || `Case ${idx + 1}`}</p>
+                                <p className="mt-1 text-slate-300"><strong className="text-violet-300">Decision:</strong> {item.decision}</p>
+                                <p className="mt-1 text-slate-200"><strong className="text-emerald-300">Lesson:</strong> {item.lesson}</p>
+                              </article>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      {generatedNote.practicalApplications?.length > 0 && (
+                        <section className="border-t border-slate-800 pt-5 space-y-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-amber-300">Practice and Project Applications</h4>
+                          <ul className="space-y-2 text-xs leading-relaxed text-slate-200">
+                            {generatedNote.practicalApplications.map((item: string, idx: number) => <li key={idx} className="flex items-start gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />{item}</li>)}
+                          </ul>
+                        </section>
+                      )}
+
+                      {generatedNote.commonMistakes?.length > 0 && (
+                        <section className="border-t border-slate-800 pt-5 space-y-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-rose-300">Common Mistakes and Corrections</h4>
+                          <div className="space-y-2">
+                            {generatedNote.commonMistakes.map((item: any, idx: number) => <div key={idx} className="rounded-lg border border-rose-500/15 bg-rose-950/10 p-3 text-xs leading-relaxed"><p className="text-rose-200"><strong>Mistake:</strong> {item.mistake}</p><p className="mt-1 text-emerald-200"><strong>Correction:</strong> {item.correction}</p></div>)}
+                          </div>
+                        </section>
+                      )}
                     </div>
                   )}
 
@@ -1424,6 +1509,7 @@ const LearningHub = () => {
                       )}
                     </div>
                   )}
+                  </NoteWatermarkedSurface>
                 </div>
               )}
             </div>
