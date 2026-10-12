@@ -1,11 +1,9 @@
 import { BarChart3, FilePlus2, MailCheck, Shield, UploadCloud, Settings, Database, Users, Edit3, UserPlus, Trash2, Key, ShieldAlert, Loader2, Sparkles, CheckCircle2, Award, PenTool, FileClock, MessageSquareText, Star, Video, BrainCircuit, ExternalLink, Activity, Layers, ArrowRight, Building2, LineChart, Download, Search, Filter, FileSpreadsheet, Plus, RefreshCw, Check, X, ChevronLeft, ChevronRight, BookOpen, AlertCircle, FileText, GitPullRequest, GraduationCap } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import SectionHeader from '../components/SectionHeader';
-import { adminAnalytics, contentTypes } from '../data/platform';
 import { apiRequest, getApiBaseUrl, readStoredToken } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { UserManagement } from '../components/admin/UserManagement';
@@ -13,15 +11,6 @@ import { AdminHelpdeskPanel } from '../components/admin/AdminHelpdeskPanel';
 import { CareerChangeManagement } from '../components/admin/CareerChangeManagement';
 import { TopicNotesManagement } from '../components/admin/TopicNotesManagement';
 import { StudentAccountManagement } from '../components/admin/StudentAccountManagement';
-
-const adminChart = [
-  { label: 'Medical', users: 3200 },
-  { label: 'Engg', users: 5400 },
-  { label: 'MBA', users: 1900 },
-  { label: 'Science', users: 2800 },
-  { label: 'Law', users: 1200 },
-  { label: 'Arts', users: 980 },
-];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -1046,7 +1035,7 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                       <Database className="h-3.5 w-3.5 text-cyan-400" />
                     </p>
                     <div className="flex items-baseline justify-between mt-2">
-                      <span className="text-3xl font-extrabold text-white">{overview?.activeQuestions || 48}</span>
+                      <span className="text-3xl font-extrabold text-white">{overview?.activeQuestions ?? '—'}</span>
                       <span className="text-xs font-semibold text-cyan-400">11 Domains</span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-1">Mechanical, Civil, Comm, IT, etc.</p>
@@ -1152,116 +1141,31 @@ const MainAdminDashboard: React.FC<MainAdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Multi-Domain Question Catalog Distribution */}
-              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 backdrop-blur-md">
-                <div className="flex items-center justify-between mb-4">
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <Database className="h-5 w-5 text-cyan-400" /> Multi-Career Domain Catalog ({overview?.activeQuestions || 48} Questions)
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Real-world technical questions categorized across diverse engineering and non-engineering careers.</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">Question bank</p>
+                    <h3 className="mt-2 text-lg font-semibold text-white">Manage the live question catalog</h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Domain distribution is intentionally not guessed here. Use the Question Bank to review the current persisted catalog and its real counts.</p>
                   </div>
-                  <button onClick={() => setActiveTab('questions')} className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold cursor-pointer">
-                    Manage Questions & AI <ArrowRight className="h-3.5 w-3.5" />
+                  <button onClick={() => setActiveTab('questions')} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20">
+                    Open Question Bank <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {[
-                    { domain: 'Mechanical Engineering', count: 7, desc: 'Thermodynamics, HVAC, GD&T, Milling' },
-                    { domain: 'Civil Engineering', count: 4, desc: 'Structural load, Concrete, Hydraulics' },
-                    { domain: 'Electronics', count: 4, desc: 'Microcontrollers, I2C/SPI, PCB layout' },
-                    { domain: 'Commerce', count: 3, desc: 'Double-entry, GST/VAT, Reconciliation' },
-                    { domain: 'Finance', count: 4, desc: 'DCF, WACC, Working capital, CAPM' },
-                    { domain: 'Management', count: 3, desc: 'Agile/Scrum, Stakeholder conflicts' },
-                    { domain: 'Marketing', count: 3, desc: 'CAC/LTV, Funnel conversion, SEO' },
-                    { domain: 'HR', count: 3, desc: 'Behavioral interviews, Conflict, Retention' },
-                    { domain: 'Design', count: 3, desc: 'Design systems, Accessibility, UX' },
-                    { domain: 'Computer Science', count: 12, desc: 'System design, REST APIs, Microservices' },
-                    { domain: 'General Behavioral', count: 2, desc: 'Problem solving, Cross-functional work' }
-                  ].map((d) => (
-                    <div key={d.domain} className="p-3.5 rounded-xl border border-white/5 bg-slate-950/60">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white truncate">{d.domain}</span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                          {d.count} Qs
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-1">{d.desc}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
-
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <motion.div 
-          initial={{ opacity: 0, x: -30 }} 
-          animate={{ opacity: 1, x: 0 }} 
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="group rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.05] to-transparent p-6 shadow-xl backdrop-blur-sm transition-all hover:border-cyan-500/20"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold text-white">Domain engagement</h3>
-              <p className="mt-1 text-sm text-slate-400">Total verified users grouped by primary learning domains.</p>
-            </div>
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-cyan-500/10 transition-colors group-hover:bg-cyan-500/20">
-              <BarChart3 className="h-5 w-5 text-cyan-400" />
-            </div>
-          </div>
-          <div className="mt-8 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={adminChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22d3ee" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.8} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="label" stroke="#64748b" tick={{ fill: '#64748b' }} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" tick={{ fill: '#64748b' }} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} 
-                />
-                <Bar dataKey="users" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          className="grid gap-4"
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-        >
-          {[
-            { icon: Shield, title: 'Badge rules', text: 'Bronze, Silver, Gold, Platinum thresholds.', color: "text-amber-400", bg: "bg-amber-500/10", border: "hover:border-amber-500/30" },
-            { icon: MailCheck, title: 'Email workflows', text: 'OTP, recruiter shares, shortlist alerts.', color: "text-purple-400", bg: "bg-purple-500/10", border: "hover:border-purple-500/30" },
-            { icon: UploadCloud, title: 'Moderation', text: 'Review companies, content, jobs, and forums.', color: "text-emerald-400", bg: "bg-emerald-500/10", border: "hover:border-emerald-500/30" },
-          ].map((item, i) => (
-            <motion.article 
-              key={item.title} 
-              variants={itemVariants} 
-              whileHover={{ scale: 1.02 }} 
-              className={`group relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/[0.6] p-5 backdrop-blur-sm transition-all ${item.border}`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/[0.02] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              <div className="relative flex items-start gap-4">
-                <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-lg ${item.bg} transition-colors`}>
-                  <item.icon className={`h-6 w-6 ${item.color}`} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-200 group-hover:text-white transition-colors">{item.title}</h3>
-                  <p className="mt-1 text-sm text-slate-400">{item.text}</p>
-                </div>
-              </div>
-            </motion.article>
-          ))}
-        </motion.div>
+      <section className="mt-8 grid gap-4 md:grid-cols-3">
+        {([
+          { title: 'Moderation queue', text: 'Review pending companies, jobs, reports, and flagged posts from live moderation counts.', tab: 'overview' },
+          { title: 'Question Bank', text: 'Manage the persisted question catalog and generate approved content.', tab: 'questions' },
+          { title: 'Certificates', text: 'Review publication, revocation, templates, and verification records.', tab: 'certificates' },
+        ] as const).map((item) => (
+          <button key={item.title} onClick={() => setActiveTab(item.tab)} className="rounded-xl border border-white/10 bg-slate-900/60 p-5 text-left transition hover:border-cyan-400/30 hover:bg-slate-900">
+            <p className="font-semibold text-white">{item.title}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{item.text}</p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-cyan-200">Open section <ArrowRight className="h-4 w-4" /></span>
+          </button>
+        ))}
       </section>
-
       <motion.section 
         id="footer-management"
         initial={{ opacity: 0, y: 30 }} 

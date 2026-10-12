@@ -1,5 +1,4 @@
-import { Activity, Bell, CalendarDays, FileBadge, Flame, Send, Target, ChevronRight, X, UserCog, AlertCircle, Upload, CheckCircle2, Sparkles, Compass, BookOpen, Briefcase } from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Activity, CalendarDays, FileBadge, Send, Target, ChevronRight, X, UserCog, AlertCircle, Upload, CheckCircle2, Sparkles, Compass, BookOpen, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useRef } from 'react';
 import MetricCard from '../components/MetricCard';
@@ -82,7 +81,7 @@ const StudentDashboard = () => {
   const [careerTwin, setCareerTwin] = useState<any>(null);
   
   // Profile Setup Modal State
-  const [showProfileModal, setShowProfileModal] = useState(true); // Defaults to true to show popup on login
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [certName, setCertName] = useState('');
@@ -271,7 +270,6 @@ const StudentDashboard = () => {
   // Dynamic Lessons based on profile strengths or default
   const currentLessons: RecommendedLesson[] = aiAnalysis?.recommendedLessons || [];
 
-  const dynamicScoreTrend: Array<{ week: string; skill: number; interview: number; learning: number }> = [];
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 overflow-hidden relative">
@@ -630,7 +628,7 @@ const StudentDashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Standing</p>
-                <p className="text-xs font-bold text-white mt-0.5 truncate">{careerTwin?.discipline || 'Candidate'} • {careerTwin?.overallScore || 78}% Verified</p>
+                <p className="text-xs font-bold text-white mt-0.5 truncate">{careerTwin?.discipline || 'Candidate'} • {careerTwin?.overallScore != null ? `${careerTwin.overallScore}% Verified` : 'Not assessed yet'}</p>
               </div>
               <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Target Role</p>
@@ -733,70 +731,59 @@ const StudentDashboard = () => {
         </motion.section>
       )}
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="group rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.05] to-transparent p-6 shadow-xl backdrop-blur-sm transition-all hover:border-cyan-500/20"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="rounded-2xl border border-white/10 bg-slate-900/60 p-6"
         >
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-white">Skill growth analytics</h3>
-              <p className="mt-1 text-sm text-slate-400">Weekly improvement across learning, skills, and interviews.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">Progress snapshot</p>
+              <h3 className="mt-2 text-xl font-semibold text-white">What your saved evidence says</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">Scores appear here only after an assessment or interview has been recorded.</p>
             </div>
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-cyan-500/10 transition-colors group-hover:bg-cyan-500/20">
-              <Activity className="h-5 w-5 text-cyan-400" />
-            </div>
+            <Activity className="h-5 w-5 text-cyan-300" />
           </div>
-          <div className="mt-8 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dynamicScoreTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="skill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.5} />
-                    <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="interview" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="learning" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="week" stroke="#64748b" tick={{ fill: '#64748b' }} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" tick={{ fill: '#64748b' }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{ background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
-                  itemStyle={{ color: '#e2e8f0' }}
-                />
-                <Area type="monotone" dataKey="skill" stroke="#22d3ee" fill="url(#skill)" strokeWidth={3} />
-                <Area type="monotone" dataKey="interview" stroke="#a78bfa" fill="url(#interview)" strokeWidth={3} />
-                <Area type="monotone" dataKey="learning" stroke="#34d399" fill="url(#learning)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="mt-6 space-y-4">
+            {metrics.map((metric) => (
+              <div key={metric.label}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-300">{metric.label}</span>
+                  <span className="font-semibold text-white">{metric.value > 0 ? `${metric.value}${metric.suffix}` : 'Not assessed'}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div className={`h-full rounded-full ${metric.tone} transition-all`} style={{ width: `${Math.min(100, Math.max(0, metric.value))}%` }} />
+                </div>
+              </div>
+            ))}
           </div>
         </motion.div>
-
-        <motion.div variants={containerVariants} initial="hidden" animate="show" className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-          <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }} className="group cursor-pointer">
-            <MetricCard label="Learning streak" value={profile?.skillDNA?.score ? Math.max(1, Math.floor(profile.skillDNA.score / 10)) : 0} icon={Flame} delta={`+${Math.floor((profile?.skillDNA?.score || 0)/20)} days`} />
-          </motion.div>
-          <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }} className="group cursor-pointer">
-            <MetricCard label="Recruiter views" value={profile?.skillDNA?.score ? Math.floor(profile.skillDNA.score / 4) : 0} icon={Bell} delta={`+${Math.floor((profile?.skillDNA?.score || 0)/15)}`} />
-          </motion.div>
-          <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }} className="group cursor-pointer">
-            <MetricCard label="Shortlist alerts" value={profile?.skillDNA?.score ? Math.floor(profile.skillDNA.score / 25) : 0} icon={FileBadge} delta="+1" />
-          </motion.div>
-          <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }} className="group cursor-pointer">
-            <MetricCard label="Skill goals met" value={profile?.skillDNA?.score ? Math.floor(profile.skillDNA.score / 20) : 0} icon={Target} delta={`+${Math.floor((profile?.skillDNA?.score || 0)/30)}`} />
-          </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="rounded-2xl border border-white/10 bg-slate-900/60 p-6"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">Keep moving</p>
+          <h3 className="mt-2 text-xl font-semibold text-white">Choose your next action</h3>
+          <div className="mt-5 space-y-3">
+            <Link to="/learning" className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/50 p-4 transition hover:border-cyan-400/30 hover:bg-slate-950">
+              <span><span className="block font-semibold text-white">Continue learning</span><span className="mt-1 block text-sm text-slate-400">Open your curriculum and resume where you stopped.</span></span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-cyan-300" />
+            </Link>
+            <Link to="/interview" className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/50 p-4 transition hover:border-cyan-400/30 hover:bg-slate-950">
+              <span><span className="block font-semibold text-white">Practice an interview</span><span className="mt-1 block text-sm text-slate-400">Record evidence for your readiness profile.</span></span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-cyan-300" />
+            </Link>
+            <Link to="/career-twin" className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/50 p-4 transition hover:border-cyan-400/30 hover:bg-slate-950">
+              <span><span className="block font-semibold text-white">Review your Career Twin</span><span className="mt-1 block text-sm text-slate-400">See target role, gaps, and recommended priorities.</span></span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-cyan-300" />
+            </Link>
+          </div>
         </motion.div>
       </section>
-
       <section className="mt-8 grid gap-6 lg:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

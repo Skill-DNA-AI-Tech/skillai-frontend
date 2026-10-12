@@ -181,7 +181,7 @@ export const interviewTypes = [
 
 export const navItems = [
   { label: 'Home', href: '/', icon: GraduationCap },
-  { label: 'Student', href: '/dashboard', icon: LineChart },
+  { label: 'Dashboard', href: '/dashboard', icon: LineChart },
   { label: 'Profile', href: '/profile', icon: User },
   { label: 'Career Twin', href: '/career-twin', icon: BrainCircuit },
   { label: 'Learning', href: '/learning', icon: BookOpen },

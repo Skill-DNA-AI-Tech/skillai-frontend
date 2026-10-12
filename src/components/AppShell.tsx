@@ -35,13 +35,13 @@ const AppShell = () => {
       return ['Home', 'Community'].includes(item.label);
     }
     if (isAdmin) {
-      // Admins have full access across the entire platform
-      return ['Home', role === 'MAIN_ADMIN' ? 'Main Admin' : 'Admin', 'Interview', 'Career Twin', 'Learning', 'Jobs', 'HR', 'Student', 'Community'].includes(item.label);
+      // Keep the unified admin portal as the single admin entry point.
+      return ['Home', 'Admin', 'Learning', 'Community'].includes(item.label);
     }
     if (role === 'HR') {
       return ['Home', 'HR', 'Jobs', 'Community'].includes(item.label);
     }
-    return ['Home', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
+    return ['Home', 'Dashboard', 'Profile', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
 
   const handleLogout = () => {

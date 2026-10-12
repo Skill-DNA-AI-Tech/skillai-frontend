@@ -1,72 +1,37 @@
-import { Calendar, MessageCircle, Plus, UsersRound, Video } from 'lucide-react';
+import { MessageCircle, UsersRound, Video } from 'lucide-react';
 import SectionHeader from '../components/SectionHeader';
-import { mentorSessions } from '../data/platform';
 
 const Community = () => {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <SectionHeader
-        eyebrow="Community and mentorship"
-        title="Mentors, alumni, forums, peer groups, and live doubt solving"
-        description="Students can book mentors, join domain communities, ask questions, attend webinars, and practice with peers."
-        action={
-          <button className="inline-flex items-center gap-2 rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200">
-            <Plus className="h-4 w-4" />
-            Ask
-          </button>
-        }
+        eyebrow="Community"
+        title="Learn with other people in your field"
+        description="Connect with peers, mentors, and domain discussions when live community content is available for your account."
       />
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div>
-          <div className="flex items-center gap-3">
-            <Calendar className="h-5 w-5 text-cyan-200" />
-            <h3 className="font-semibold text-white">Mentor sessions</h3>
+      <section className="mt-8 rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:p-8">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10">
+            <MessageCircle className="h-6 w-6 text-cyan-200" />
           </div>
-          <div className="mt-4 grid gap-3">
-            {mentorSessions.map((session) => (
-              <article key={session.mentor} className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
-                <h4 className="font-semibold text-white">{session.mentor}</h4>
-                <p className="mt-1 text-sm text-slate-400">{session.field}</p>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-sm text-slate-300">{session.time}</span>
-                  <button className="rounded-md bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-200">Book</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center gap-3">
-            <MessageCircle className="h-5 w-5 text-emerald-200" />
-            <h3 className="font-semibold text-white">Discussion forum</h3>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {[
-              { title: 'How should I present a pharmacy project to recruiters?', meta: 'Pharmacy - 18 replies' },
-              { title: 'Best way to revise mechanics before campus hiring?', meta: 'Engineering - 32 replies' },
-              { title: 'Can a BSc chemistry student move into analytics?', meta: 'Science - 11 replies' },
-            ].map((post) => (
-              <article key={post.title} className="rounded-lg border border-white/10 bg-slate-900/[0.84] p-5">
-                <h4 className="font-semibold text-white">{post.title}</h4>
-                <p className="mt-2 text-sm text-slate-400">{post.meta}</p>
-              </article>
-            ))}
+          <div>
+            <h2 className="text-xl font-semibold text-white">No live community sessions are available yet.</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">We are keeping this space honest: there are no placeholder mentors, invented discussion counts, or inactive booking buttons. Your learning path and assessments remain available while community content is connected.</p>
           </div>
         </div>
       </section>
 
       <section className="mt-8 grid gap-4 md:grid-cols-3">
         {[
-          { icon: UsersRound, title: 'Peer groups', text: 'Domain cohorts for practice, accountability, and group discussion rounds.' },
-          { icon: Video, title: 'Webinars', text: 'Live career guidance, alumni talks, interview prep, and Q&A sessions.' },
-          { icon: MessageCircle, title: 'Doubt solving', text: 'Topic-specific questions, mentor responses, and community answers.' },
+          { icon: UsersRound, title: 'Peer groups', text: 'Domain cohorts for practice and accountability once a group is available.' },
+          { icon: Video, title: 'Live sessions', text: 'Mentor talks and Q&A events will appear here with real schedules and capacity.' },
+          { icon: MessageCircle, title: 'Doubt solving', text: 'Topic-specific questions and answers will be shown from the connected community service.' },
         ].map((item) => (
-          <article key={item.title} className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
+          <article key={item.title} className="rounded-xl border border-white/10 bg-slate-900/40 p-5">
             <item.icon className="h-6 w-6 text-cyan-200" />
             <h3 className="mt-4 font-semibold text-white">{item.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{item.text}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{item.text}</p>
           </article>
         ))}
       </section>
