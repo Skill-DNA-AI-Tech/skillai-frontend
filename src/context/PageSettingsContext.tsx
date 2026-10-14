@@ -24,8 +24,10 @@ export const PageSettingsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const data = await apiRequest<PageSetting[]>('/admin/page-settings');
       setSettings(data);
-    } catch (err) {
-      console.error('Failed to load page settings:', err);
+    } catch {
+      // Page visibility is optional; an unavailable settings endpoint means
+      // normal pages remain visible rather than breaking the public shell.
+      setSettings([]);
     } finally {
       setLoading(false);
     }

@@ -32,7 +32,7 @@ const AppShell = () => {
     }
 
     if (!role) {
-      return ['Home', 'Community'].includes(item.label);
+      return ['Home'].includes(item.label);
     }
     if (isAdmin) {
       // Keep the unified admin portal as the single admin entry point.
@@ -172,12 +172,12 @@ const AppShell = () => {
                           {(role === 'ADMIN' || role === 'MAIN_ADMIN') && (
                             <>
                               <Link
-                                to={role === 'MAIN_ADMIN' ? '/main-admin' : '/admin'}
+                                to="/admin"
                                 onClick={() => setShowDropdown(false)}
                                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-cyan-300 font-semibold hover:bg-cyan-500/10 transition-colors"
                               >
                                 <ShieldCheck className="h-4 w-4 text-cyan-400" />
-                                {role === 'MAIN_ADMIN' ? 'Main Admin Portal' : 'Admin Portal'}
+                                Admin Portal
                               </Link>
                               <Link
                                 to="/admin/questions"
@@ -333,12 +333,12 @@ const AppShell = () => {
                   {(role === 'ADMIN' || role === 'MAIN_ADMIN') && (
                     <>
                       <Link
-                        to={role === 'MAIN_ADMIN' ? '/main-admin' : '/admin'}
+                        to="/admin"
                         onClick={() => setOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/20"
                       >
                         <ShieldCheck className="h-4 w-4 text-cyan-400" />
-                        {role === 'MAIN_ADMIN' ? 'Main Admin Portal' : 'Admin Portal'}
+                        Admin Portal
                       </Link>
                       <Link
                         to="/admin/questions"

@@ -16,9 +16,9 @@ const Footer = () => {
       try {
         const data = await apiRequest<FooterData>('/admin/footer');
         setFooterData(data);
-      } catch (error) {
-        console.error('Failed to fetch footer:', error);
-        // Fallback to default
+      } catch {
+        // Footer settings are optional on public pages; use the safe local
+        // navigation fallback when the admin endpoint is unavailable.
         setFooterData({
           text: 'Empowering careers through AI-driven skill assessment and personalized learning paths.',
           linkGroups: [
