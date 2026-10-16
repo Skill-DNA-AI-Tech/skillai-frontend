@@ -14,7 +14,7 @@ import ProgressBar from '../components/ProgressBar';
 import { apiRequest, getApiBaseUrl } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-type TabType = 'notes' | 'ai-notes' | 'my-notes' | 'resources' | 'mcq' | 'interview' | 'remediation';
+type TabType = 'notes' | 'ai-notes' | 'my-notes' | 'question-batches' | 'resources' | 'mcq' | 'interview' | 'remediation';
 
 interface TopicProgress {
   name: string;
@@ -146,6 +146,9 @@ const LearningHub = () => {
   const [savedNotesSearch, setSavedNotesSearch] = useState('');
   const [selectedSavedNote, setSelectedSavedNote] = useState<any>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [noteRequests, setNoteRequests] = useState<any[]>([]);
+  const [questionBatches, setQuestionBatches] = useState<any[]>([]);
+  const [loadingQuestionBatches, setLoadingQuestionBatches] = useState(false);
 
   const fetchMyNotes = async () => {
     if (!token) return;
@@ -153,6 +156,8 @@ const LearningHub = () => {
       setLoadingMyNotes(true);
       const data = await apiRequest<any[]>('/learning/notes/my', { token });
       setMyNotes(data || []);
+      const requests = await apiRequest<any[]>('/learning/notes/regeneration-requests', { token });
+      setNoteRequests(requests || []);
     } catch (err: any) {
       console.warn('Failed to load saved notes:', err);
     } finally {
@@ -165,6 +170,28 @@ const LearningHub = () => {
       fetchMyNotes();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!token || activeTab !== 'question-batches') return;
+    setLoadingQuestionBatches(true);
+    apiRequest<any>('/learning/question-batches', { token })
+      .then((data) => setQuestionBatches(data.batches || []))
+      .catch((err) => console.warn('Failed to load question batches:', err))
+      .finally(() => setLoadingQuestionBatches(false));
+  }, [activeTab, token]);
+
+  const handleRequestNewNoteVersion = async (note: any) => {
+    const reason = window.prompt('Why does this note need a new version? Please explain what is incomplete, unclear, incorrect, or missing.')?.trim();
+    if (!reason || reason.length < 12) {
+      if (reason !== null) alert('Please provide a meaningful reason of at least 12 characters.');
+      return;
+    }
+    try {
+      const request = await apiRequest<any>('/learning/notes/regeneration-requests', { method: 'POST', token, body: JSON.stringify({ noteId: note._id || note.id, reason }) });
+      setNoteRequests((previous) => [request, ...previous.filter((item) => item._id !== request._id)]);
+      alert('Request submitted. An authorized Admin must review it before a new version is generated.');
+    } catch (err: any) { alert(err.message || 'Could not submit the request.'); }
+  };
 
   const handleGenerateAiNotes = async (customTopic?: string, customDomain?: string, customLevel?: string) => {
     const topicToUse = customTopic || aiNoteTopic.trim() || curriculum?.topics?.[selectedTopicIndex]?.name || 'Core Principles';
@@ -794,6 +821,7 @@ const LearningHub = () => {
                 { id: 'notes', label: 'Curriculum Notes', icon: FileText },
                 { id: 'ai-notes', label: 'AI Study Notes', icon: Sparkles },
                 { id: 'my-notes', label: 'My Notes', icon: BookOpen },
+                { id: 'question-batches', label: 'Question History', icon: ListChecks },
                 { id: 'resources', label: 'Learning Resources', icon: Video },
                 { id: 'mcq', label: 'MCQ Practice (50% Component Minimum)', icon: ListChecks },
                 { id: 'interview', label: 'Mock Interview', icon: Award },
@@ -1612,6 +1640,7 @@ const LearningHub = () => {
                               <span className="text-[10px] text-slate-500">{dateStr}</span>
                             </div>
                             <h4 className="text-sm font-bold text-white mt-2">{note.topic}</h4>
+                            <span className="mt-1 inline-flex rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">Version {note.version || 1} • {note.generationStatus || 'SAVED'}</span>
                             <p className="text-xs text-slate-400 line-clamp-2 mt-1 leading-relaxed">
                               {note.summary}
                             </p>
@@ -1636,6 +1665,12 @@ const LearningHub = () => {
                               >
                                 <Download className="w-3 h-3 text-cyan-400" /> PDF
                               </button>
+                              <button
+                                onClick={() => handleRequestNewNoteVersion(note)}
+                                className="text-[11px] font-semibold text-amber-300 hover:text-amber-200 flex items-center gap-1 cursor-pointer bg-slate-800/80 hover:bg-slate-700 px-2 py-0.5 rounded-lg border border-slate-700 transition"
+                              >
+                                Request revision
+                              </button>
                             </div>
                             <button
                               onClick={() => handleDeleteSavedNote(noteId)}
@@ -1651,6 +1686,16 @@ const LearningHub = () => {
                     })}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'question-batches' && (
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-5">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2"><ListChecks className="w-5 h-5 text-cyan-400" /> Monthly theory questions</h3>
+                <p className="text-xs text-slate-400 mt-1">New batches stay separate from previous attempts. Answer keys unlock 30 days after publication.</p>
+              </div>
+              {loadingQuestionBatches ? <div className="py-12 text-center text-slate-400"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-cyan-400" />Loading question history…</div> : questionBatches.length === 0 ? <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs text-slate-400">No theory question batches are available for your assigned curriculum yet.</div> : <div className="space-y-3">{questionBatches.map((batch) => <div key={batch.batchId} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-white">Batch {batch.batchNumber}</p><p className="text-[11px] text-slate-500">Published {batch.publishedAt ? new Date(batch.publishedAt).toLocaleDateString() : '—'} • {batch.questionCount} questions</p></div><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${batch.answerKeyReleased ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{batch.answerKeyReleased ? 'Answer key released' : 'Answer key locked until 30 days'}</span></div><div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-300"><span className="rounded bg-slate-800 px-2 py-1">Easy {batch.difficultyDistribution?.Easy || 0}</span><span className="rounded bg-slate-800 px-2 py-1">Medium {batch.difficultyDistribution?.Medium || 0}</span><span className="rounded bg-slate-800 px-2 py-1">Hard {batch.difficultyDistribution?.Hard || 0}</span></div></div>)}</div>}
             </div>
           )}
 
