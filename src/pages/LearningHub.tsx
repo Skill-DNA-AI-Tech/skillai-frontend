@@ -149,6 +149,10 @@ const LearningHub = () => {
   const [noteRequests, setNoteRequests] = useState<any[]>([]);
   const [questionBatches, setQuestionBatches] = useState<any[]>([]);
   const [loadingQuestionBatches, setLoadingQuestionBatches] = useState(false);
+  const [selectedQuestionBatch, setSelectedQuestionBatch] = useState<any | null>(null);
+  const [batchAnswers, setBatchAnswers] = useState<Record<string, string>>({});
+  const [batchAttempt, setBatchAttempt] = useState<any | null>(null);
+  const [submittingBatch, setSubmittingBatch] = useState(false);
 
   const fetchMyNotes = async () => {
     if (!token) return;
@@ -191,6 +195,27 @@ const LearningHub = () => {
       setNoteRequests((previous) => [request, ...previous.filter((item) => item._id !== request._id)]);
       alert('Request submitted. An authorized Admin must review it before a new version is generated.');
     } catch (err: any) { alert(err.message || 'Could not submit the request.'); }
+  };
+
+  const openQuestionBatch = async (batch: any) => {
+    setSelectedQuestionBatch(batch);
+    setBatchAnswers({});
+    setBatchAttempt(null);
+    try {
+      const response = await apiRequest<any>(`/learning/question-batches/${encodeURIComponent(batch.batchId)}/attempts`, { token });
+      setBatchAttempt(response.attempts?.[0] || null);
+      if (response.attempts?.[0]?.answers) setBatchAnswers(response.attempts[0].answers);
+    } catch (err) { console.warn('Failed to load saved question attempt:', err); }
+  };
+
+  const submitQuestionBatch = async () => {
+    if (!selectedQuestionBatch || !token || batchAttempt) return;
+    setSubmittingBatch(true);
+    try {
+      const response = await apiRequest<any>(`/learning/question-batches/${encodeURIComponent(selectedQuestionBatch.batchId)}/attempt`, { method: 'POST', token, body: JSON.stringify({ answers: batchAnswers }) });
+      setBatchAttempt(response.attempt);
+    } catch (err: any) { alert(err.message || 'Could not save this attempt.'); }
+    finally { setSubmittingBatch(false); }
   };
 
   const handleGenerateAiNotes = async (customTopic?: string, customDomain?: string, customLevel?: string) => {
@@ -1695,7 +1720,7 @@ const LearningHub = () => {
                 <h3 className="text-base font-bold text-white flex items-center gap-2"><ListChecks className="w-5 h-5 text-cyan-400" /> Monthly theory questions</h3>
                 <p className="text-xs text-slate-400 mt-1">New batches stay separate from previous attempts. Answer keys unlock 30 days after publication.</p>
               </div>
-              {loadingQuestionBatches ? <div className="py-12 text-center text-slate-400"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-cyan-400" />Loading question history…</div> : questionBatches.length === 0 ? <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs text-slate-400">No theory question batches are available for your assigned curriculum yet.</div> : <div className="space-y-3">{questionBatches.map((batch) => <div key={batch.batchId} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-white">Batch {batch.batchNumber}</p><p className="text-[11px] text-slate-500">Published {batch.publishedAt ? new Date(batch.publishedAt).toLocaleDateString() : '—'} • {batch.questionCount} questions</p></div><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${batch.answerKeyReleased ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{batch.answerKeyReleased ? 'Answer key released' : 'Answer key locked until 30 days'}</span></div><div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-300"><span className="rounded bg-slate-800 px-2 py-1">Easy {batch.difficultyDistribution?.Easy || 0}</span><span className="rounded bg-slate-800 px-2 py-1">Medium {batch.difficultyDistribution?.Medium || 0}</span><span className="rounded bg-slate-800 px-2 py-1">Hard {batch.difficultyDistribution?.Hard || 0}</span></div></div>)}</div>}
+              {loadingQuestionBatches ? <div className="py-12 text-center text-slate-400"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-cyan-400" />Loading question history…</div> : questionBatches.length === 0 ? <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs text-slate-400">No theory question batches are available for your assigned curriculum yet. An Admin must publish the next batch.</div> : <div className="space-y-3">{questionBatches.map((batch) => { const answeredCount = batch.questions?.filter((q: any) => batchAttempt?.batchId === batch.batchId && batchAttempt.answers?.[q.questionId]?.trim()).length || 0; return <div key={batch.batchId} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-white">Batch {batch.batchNumber}</p><p className="text-[11px] text-slate-500">Published {batch.publishedAt ? new Date(batch.publishedAt).toLocaleDateString() : '—'} • {batch.questionCount} questions • {answeredCount}/{batch.questionCount} answered</p></div><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${batch.answerKeyReleased ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{batch.answerKeyReleased ? 'Answer key released' : 'Answer key locked until 30 days'}</span></div><div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-300"><span className="rounded bg-slate-800 px-2 py-1">Easy {batch.difficultyDistribution?.Easy || 0}</span><span className="rounded bg-slate-800 px-2 py-1">Medium {batch.difficultyDistribution?.Medium || 0}</span><span className="rounded bg-slate-800 px-2 py-1">Hard {batch.difficultyDistribution?.Hard || 0}</span></div><button type="button" onClick={() => openQuestionBatch(batch)} className="mt-4 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300">{batchAttempt?.batchId === batch.batchId ? 'View saved attempt' : 'Open 15 questions'}</button>{selectedQuestionBatch?.batchId === batch.batchId && <div className="mt-4 space-y-3 border-t border-slate-800 pt-4">{batch.questions?.map((question: any, index: number) => <div key={question.questionId} className="rounded-xl border border-slate-800 bg-slate-900/80 p-3"><div className="flex items-start justify-between gap-3"><p className="text-sm font-semibold text-white">{index + 1}. {question.question}</p><span className="shrink-0 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300">{question.difficulty}</span></div><textarea disabled={Boolean(batchAttempt)} value={batchAnswers[question.questionId] || ''} onChange={(event) => setBatchAnswers((previous) => ({ ...previous, [question.questionId]: event.target.value }))} rows={2} placeholder="Write your answer…" className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white placeholder:text-slate-500" />{batchAttempt && batch.answerKeyReleased && <div className="mt-2 text-xs text-slate-400"><strong className="text-emerald-300">Expected approach:</strong> {question.expectedAnswer}<br /><strong className="text-cyan-300">Explanation:</strong> {question.explanation}</div>}</div>)}{batchAttempt ? <p className="rounded-lg bg-emerald-500/10 p-3 text-xs text-emerald-300">Attempt saved with score {batchAttempt.score}%. Duplicate submissions are blocked.</p> : <button type="button" disabled={submittingBatch} onClick={submitQuestionBatch} className="rounded-lg bg-cyan-400 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50">{submittingBatch ? 'Saving attempt…' : 'Submit batch attempt'}</button>}</div>}</div>; })}</div>}
             </div>
           )}
 

@@ -1,8 +1,8 @@
-const AUTHORITATIVE_FASTAPI_URL = 'https://skillai-backend.onrender.com/api';
+const AUTHORITATIVE_FASTAPI_URL = 'https://skilldnaai-backend.onrender.com/api';
 
 export const getApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  if (envUrl && !envUrl.includes('skilldna-backend.onrender.com')) {
+  if (envUrl && !envUrl.includes('skilldnaai-backend.onrender.com') && !envUrl.includes('skillai-backend.onrender.com')) {
     return envUrl.replace(/\/+$/, '');
   }
   // Authoritative Render Backend for production hosting
