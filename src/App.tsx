@@ -9,6 +9,7 @@ import PageAccessWrapper from './components/PageAccessWrapper';
 
 const Auth = lazy(() => import('./pages/Auth'));
 const CareerTwin = lazy(() => import('./pages/CareerTwin'));
+const CareerGapAnalysis = lazy(() => import('./pages/CareerGapAnalysis'));
 const Register = lazy(() => import('./pages/Register'));
 const Community = lazy(() => import('./pages/Community'));
 const DynamicInterviewPage = lazy(() => import('./pages/DynamicInterviewPage'));
@@ -133,6 +134,7 @@ const AnimatedRoutes = () => {
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/profile/:id" element={<ProtectedRoute allowedRoles={['STUDENT', 'HR', 'ADMIN', 'MAIN_ADMIN', 'SUPPORT_TEAM']}><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/career-twin" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="career-twin"><CareerTwin /></PageAccessWrapper></ProtectedRoute>} />
+          <Route path="/career-gap" element={<ProtectedRoute allowedRoles={['STUDENT']}><CareerGapAnalysis /></ProtectedRoute>} />
           <Route path="/learning" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="learning"><LearningHub /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/interview" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><DynamicInterviewPage /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/interview/dynamic" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><DynamicInterviewPage /></PageAccessWrapper></ProtectedRoute>} />

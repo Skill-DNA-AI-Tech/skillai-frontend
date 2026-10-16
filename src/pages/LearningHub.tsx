@@ -1,7 +1,7 @@
 import { 
   FileText, ListChecks, Sparkles, Loader2, CheckCircle2, XCircle, 
   AlertTriangle, Award, BookOpen, MessageSquare, Send, ChevronRight, 
-  ChevronDown, RotateCcw, ExternalLink, HelpCircle, Lock, Video, 
+  ChevronDown, RotateCcw, ExternalLink, HelpCircle, Video,
   Code, Compass, ArrowRight, CheckCircle, RefreshCw, X, AlertCircle,
   Bookmark, Copy, Search, Trash2, Download
 } from 'lucide-react';
@@ -81,6 +81,7 @@ const LearningHub = () => {
   const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
   const [selectedSubtopic, setSelectedSubtopic] = useState<string>('');
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
+  const [topicSearch, setTopicSearch] = useState('');
   const learningLocationKey = user?._id ? `skilldna_learning_location_${user._id}` : 'skilldna_learning_location';
 
   // Active Tab
@@ -389,6 +390,15 @@ const LearningHub = () => {
 
   const currentTopic = curriculum?.topics?.[selectedTopicIndex];
 
+  const selectTopic = (index: number) => {
+    if (!curriculum?.topics?.[index]) return;
+    const topic = curriculum.topics[index];
+    setSelectedTopicIndex(index);
+    setSelectedSubtopic(topic.subtopics?.[0] || '');
+    setExpandedTopics((previous) => ({ ...previous, [topic.name]: true }));
+    if (mcqMode !== 'setup') setMcqMode('setup');
+  };
+
   // Fetch Topic Content (Notes, Resources, Remediation)
   const fetchTopicContent = async (topicName: string, subtopicName?: string) => {
     if (!token || !curriculum) return;
@@ -613,8 +623,8 @@ const LearningHub = () => {
                 {curriculum.domain}
               </span>
               <h1 className="text-2xl font-bold text-white">{curriculum.career}</h1>
-              <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold">
-                <Lock className="w-3 h-3" /> Locked Curriculum
+              <span className="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold">
+                Active curriculum
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-3xl">
@@ -640,7 +650,7 @@ const LearningHub = () => {
       {/* Main Grid: Left Curriculum Tree, Right Topic Details */}
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
         {/* Left: Active Curriculum Hierarchy */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3 sticky top-20">
+        <div id="curriculum-topics" className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3 sticky top-20">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-cyan-400" />
@@ -651,8 +661,20 @@ const LearningHub = () => {
             </span>
           </div>
 
+          <label className="relative block">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+            <input
+              value={topicSearch}
+              onChange={(event) => setTopicSearch(event.target.value)}
+              placeholder="Search topics"
+              aria-label="Search curriculum topics"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-9 py-2 text-xs text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+            />
+          </label>
+
           <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
             {curriculum.topics.map((t, idx) => {
+              if (topicSearch.trim() && !`${t.name} ${t.subtopics.join(' ')}`.toLowerCase().includes(topicSearch.trim().toLowerCase())) return null;
               const isSelected = idx === selectedTopicIndex;
               const moduleStart = idx % 2 === 0;
               const isExpanded = expandedTopics[t.name] || false;
@@ -664,15 +686,7 @@ const LearningHub = () => {
                   )}
                   <div className="rounded-xl overflow-hidden border border-slate-800/80">
                   <div
-                    onClick={() => {
-                      setSelectedTopicIndex(idx);
-                      if (t.subtopics && t.subtopics.length > 0) {
-                        setSelectedSubtopic(t.subtopics[0]);
-                      } else {
-                        setSelectedSubtopic('');
-                      }
-                      if (mcqMode !== 'setup') setMcqMode('setup');
-                    }}
+                    onClick={() => selectTopic(idx)}
                     className={`p-3 flex items-center justify-between gap-2 cursor-pointer transition-all ${
                       isSelected
                         ? 'bg-cyan-950/40 border-l-4 border-cyan-400 text-white'
@@ -802,6 +816,12 @@ const LearningHub = () => {
                   </button>
                 );
               })}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button type="button" disabled={selectedTopicIndex === 0} onClick={() => selectTopic(selectedTopicIndex - 1)} className="rounded-lg border border-slate-700 px-2.5 py-2 text-[11px] font-semibold text-slate-300 hover:border-cyan-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Previous topic</button>
+              <button type="button" onClick={() => document.getElementById('curriculum-topics')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-500/10">Back to curriculum</button>
+              <button type="button" disabled={!curriculum || selectedTopicIndex === curriculum.topics.length - 1} onClick={() => selectTopic(selectedTopicIndex + 1)} className="rounded-lg border border-cyan-500/40 px-2.5 py-2 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-40">Next topic</button>
             </div>
           </div>
 
