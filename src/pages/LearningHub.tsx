@@ -82,6 +82,7 @@ const LearningHub = () => {
   const [selectedSubtopic, setSelectedSubtopic] = useState<string>('');
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
   const [topicSearch, setTopicSearch] = useState('');
+  const [subjectRequestStatus, setSubjectRequestStatus] = useState<string | null>(null);
   const learningLocationKey = user?._id ? `skilldna_learning_location_${user._id}` : 'skilldna_learning_location';
 
   // Active Tab
@@ -195,6 +196,20 @@ const LearningHub = () => {
       setNoteRequests((previous) => [request, ...previous.filter((item) => item._id !== request._id)]);
       alert('Request submitted. An authorized Admin must review it before a new version is generated.');
     } catch (err: any) { alert(err.message || 'Could not submit the request.'); }
+  };
+
+  const handleRequestNewSubject = async () => {
+    const targetSubject = window.prompt('Which subject or learning stream would you like to request?')?.trim();
+    if (!targetSubject) return;
+    const reason = window.prompt('Why should Admin add or switch this subject?')?.trim();
+    if (!reason || reason.length < 12) {
+      alert('Please provide a meaningful reason of at least 12 characters.');
+      return;
+    }
+    try {
+      const request = await apiRequest<any>('/subject-change-requests', { method: 'POST', token, body: JSON.stringify({ currentSubject: curriculum?.career, targetSubject, reason }) });
+      setSubjectRequestStatus(request.status || 'PENDING');
+    } catch (err: any) { alert(err.message || 'Could not submit the subject request.'); }
   };
 
   const openQuestionBatch = async (batch: any) => {
@@ -684,7 +699,10 @@ const LearningHub = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-4 shrink-0 bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            <button type="button" onClick={() => document.getElementById('curriculum-topics')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="rounded-lg border border-cyan-500/40 px-3 py-2 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-500/10">Switch subject</button>
+            <button type="button" onClick={handleRequestNewSubject} className="rounded-lg border border-amber-500/40 px-3 py-2 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/10">Request new subject</button>
+            <div className="flex items-center gap-4 bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <div>
               <p className="text-[11px] text-slate-400">Mastery Progress</p>
               <p className="text-lg font-bold text-cyan-400">
@@ -695,6 +713,8 @@ const LearningHub = () => {
               <ProgressBar value={curriculum.completionPercentage} tone="bg-gradient-to-r from-cyan-400 to-blue-500" />
               <p className="text-[10px] text-right text-slate-400 mt-1">{curriculum.completionPercentage}%</p>
             </div>
+            </div>
+            {subjectRequestStatus && <span className="w-full text-right text-[10px] text-amber-300">Subject request: {subjectRequestStatus}</span>}
           </div>
         </div>
       </div>
