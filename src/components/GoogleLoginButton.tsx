@@ -15,12 +15,18 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   clientId
 }) => {
   const { login } = useAuth();
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || clientId || '849754791910-kvubjul5bnqi8un3c38on96bdengsn37.apps.googleusercontent.com';
+  const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || clientId || '').trim();
   const buttonRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSdkLoaded, setIsSdkLoaded] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!googleClientId) {
+      const err = 'Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID for this frontend deployment.';
+      setError(err);
+      onFailure?.(err);
+      return;
+    }
     // 1. Check if Google SDK is already loaded
     if (window.google?.accounts?.id) {
       setIsSdkLoaded(true);

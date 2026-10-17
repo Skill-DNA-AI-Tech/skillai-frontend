@@ -198,16 +198,16 @@ const LearningHub = () => {
     } catch (err: any) { alert(err.message || 'Could not submit the request.'); }
   };
 
-  const handleRequestNewSubject = async () => {
-    const targetSubject = window.prompt('Which subject or learning stream would you like to request?')?.trim();
-    if (!targetSubject) return;
+  const handleRequestCurriculumChange = async () => {
+    const targetCurriculum = window.prompt('Which curriculum or career track would you like to request?')?.trim();
+    if (!targetCurriculum) return;
     const reason = window.prompt('Why should Admin add or switch this subject?')?.trim();
     if (!reason || reason.length < 12) {
       alert('Please provide a meaningful reason of at least 12 characters.');
       return;
     }
     try {
-      const request = await apiRequest<any>('/subject-change-requests', { method: 'POST', token, body: JSON.stringify({ currentSubject: curriculum?.career, targetSubject, reason }) });
+      const request = await apiRequest<any>('/career-change-requests', { method: 'POST', token, body: JSON.stringify({ fromRole: curriculum?.career || 'Current curriculum', toRole: targetCurriculum, reason }) });
       setSubjectRequestStatus(request.status || 'PENDING');
     } catch (err: any) { alert(err.message || 'Could not submit the subject request.'); }
   };
@@ -701,7 +701,7 @@ const LearningHub = () => {
 
           <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
             <button type="button" onClick={() => document.getElementById('curriculum-topics')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="rounded-lg border border-cyan-500/40 px-3 py-2 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-500/10">Switch subject</button>
-            <button type="button" onClick={handleRequestNewSubject} className="rounded-lg border border-amber-500/40 px-3 py-2 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/10">Request new subject</button>
+            <button type="button" onClick={handleRequestCurriculumChange} className="rounded-lg border border-amber-500/40 px-3 py-2 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/10">Request curriculum change</button>
             <div className="flex items-center gap-4 bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <div>
               <p className="text-[11px] text-slate-400">Mastery Progress</p>

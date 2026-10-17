@@ -376,16 +376,23 @@ const Auth = () => {
               )}
 
               {mode === 'register' && (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  Full Name
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </label>
+                <>
+                  <GoogleLoginButton onSuccess={(user) => navigateToRole(user.role)} onFailure={(err) => setError(err)} />
+                  <div className="relative my-2 text-center">
+                    <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-white/5" style={{ transform: 'translateY(-50%)' }} />
+                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or create an account with email</span>
+                  </div>
+                  <label className="grid gap-2 text-sm font-medium text-slate-300">
+                    Full Name
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      placeholder="Enter your full name"
+                      required
+                    />
+                  </label>
+                </>
               )}
 
               {mode !== 'change_temp_password' && mode !== 'admin_otp' && (
