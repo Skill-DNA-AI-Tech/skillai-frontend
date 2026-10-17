@@ -72,6 +72,14 @@ const StructuredNoteText = ({ text }: { text?: string }) => {
   );
 };
 
+const LearningHubOverview = ({ curriculum, currentTopic, questionBatches, userName, onContinue, onChallenge, onAskAi, onSelectTopic }: { curriculum: ActiveCurriculumData; currentTopic?: TopicProgress; questionBatches: any[]; userName?: string; onContinue: () => void; onChallenge: () => void; onAskAi: () => void; onSelectTopic: (index: number) => void }) => {
+  const focus = curriculum.topics.find((topic) => topic.status === 'NEEDS_REVISION');
+  return <section className="space-y-4">
+    <div className="overflow-hidden rounded-[2rem] border border-slate-800 bg-[#101827] shadow-2xl shadow-cyan-950/20"><div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[1.4fr_0.6fr]"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Your learning workspace</p><h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">Welcome back, {userName?.split(' ')[0] || 'learner'}.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Continue your assigned {curriculum.domain} path and keep every assessment and note connected to your real progress.</p><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={onContinue} className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-300">Continue learning</button><button type="button" onClick={onChallenge} className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-cyan-400 hover:text-white">Open monthly challenge</button></div></div><div className="rounded-2xl border border-slate-700/80 bg-slate-950/60 p-5"><p className="text-xs text-slate-400">Assigned curriculum</p><p className="mt-2 text-lg font-bold text-white">{curriculum.career}</p><div className="mt-5 flex items-end justify-between"><span className="text-xs text-slate-400">Overall completion</span><strong className="text-2xl text-cyan-300">{curriculum.completionPercentage}%</strong></div><div className="mt-2"><ProgressBar value={curriculum.completionPercentage} tone="bg-gradient-to-r from-cyan-400 to-blue-500" /></div><p className="mt-3 text-xs text-slate-500">{curriculum.masteredTopics} of {curriculum.totalTopics} topics mastered · Streak data is not available yet.</p></div></div><div className="grid divide-y divide-slate-800 border-t border-slate-800 sm:grid-cols-3 sm:divide-x sm:divide-y-0"><div className="p-5"><p className="text-xs text-slate-500">Next lesson</p><p className="mt-2 font-semibold text-white">{currentTopic?.name || 'No topic assigned'}</p><p className="mt-1 text-xs text-slate-400">{currentTopic?.status === 'PASSED' ? 'Review mastered topic' : currentTopic?.status === 'IN_PROGRESS' ? 'Continue in-progress topic' : 'Start available topic'}</p></div><div className="p-5"><p className="text-xs text-slate-500">Needs focus</p><p className="mt-2 font-semibold text-white">{focus?.name || 'No flagged topic'}</p><p className="mt-1 text-xs text-slate-400">Based on persisted assessment evidence</p></div><div className="p-5"><p className="text-xs text-slate-500">Monthly challenge</p><p className="mt-2 font-semibold text-white">{questionBatches[0] ? `${questionBatches[0].questionCount} questions · ${questionBatches[0].status}` : 'No published batch'}</p><p className="mt-1 text-xs text-slate-400">{questionBatches[0] ? 'Answer key follows the 30-day policy' : 'An Admin must publish the next batch'}</p></div></div></div>
+    <div className="grid gap-4 lg:grid-cols-[1.5fr_0.5fr]"><div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">My learning path</p><h2 className="mt-1 text-xl font-bold text-white">Build momentum one topic at a time</h2></div><span className="text-xs text-slate-500">{curriculum.topics.length} topics</span></div><div className="mt-5 grid gap-3 sm:grid-cols-2">{curriculum.topics.slice(0, 6).map((topic, index) => <button type="button" key={topic.name} onClick={() => onSelectTopic(index)} className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-left hover:border-cyan-500/50"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold ${topic.status === 'PASSED' ? 'bg-emerald-400/15 text-emerald-300' : topic.status === 'IN_PROGRESS' ? 'bg-cyan-400/15 text-cyan-300' : 'bg-slate-800 text-slate-400'}`}>{index + 1}</span><span><strong className="block text-sm text-white">{topic.name}</strong><span className="mt-1 block text-xs text-slate-500">{topic.status === 'PASSED' ? 'Done · Review' : topic.status === 'IN_PROGRESS' ? 'In progress · Continue' : 'Available · Start'} · 5–15 min</span></span></button>)}</div></div><div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Skill focus</p><h2 className="mt-1 text-xl font-bold text-white">Practice with purpose</h2><p className="mt-3 text-sm leading-6 text-slate-400">Skill levels appear only when supported by profile or assessment evidence.</p><div className="mt-5 rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-500">No separate skill evidence is available for a focus card yet.</div><button type="button" onClick={onAskAi} className="mt-4 w-full rounded-xl border border-cyan-500/40 px-3 py-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/10">Ask AI about this path</button></div></div>
+  </section>;
+};
+
 const LearningHub = () => {
   const { token, user } = useAuth();
 
@@ -177,7 +185,7 @@ const LearningHub = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!token || activeTab !== 'question-batches') return;
+    if (!token) return;
     setLoadingQuestionBatches(true);
     apiRequest<any>('/learning/question-batches', { token })
       .then((data) => setQuestionBatches(data.batches || []))
@@ -681,6 +689,16 @@ const LearningHub = () => {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+      <LearningHubOverview
+        curriculum={curriculum}
+        currentTopic={currentTopic}
+        questionBatches={questionBatches}
+        userName={user?.name}
+        onContinue={() => document.getElementById('lesson-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        onChallenge={() => setActiveTab('question-batches')}
+        onAskAi={() => setChatbotOpen(true)}
+        onSelectTopic={(index) => { selectTopic(index); document.getElementById('lesson-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+      />
       {/* Top Banner: Active Career & Locked Curriculum */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-cyan-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
