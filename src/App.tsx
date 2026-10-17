@@ -32,6 +32,7 @@ const StudentAccountManagement = lazy(() => import('./components/admin/StudentAc
 const CareerChangeManagement = lazy(() => import('./components/admin/CareerChangeManagement').then(m => ({ default: m.CareerChangeManagement })));
 const TopicNotesManagement = lazy(() => import('./components/admin/TopicNotesManagement').then(m => ({ default: m.TopicNotesManagement })));
 const AdminHelpdeskPanel = lazy(() => import('./components/admin/AdminHelpdeskPanel').then(m => ({ default: m.AdminHelpdeskPanel })));
+const LearningHubAdmin = lazy(() => import('./pages/LearningHubAdmin'));
 
 const RouteFallback = () => (
   <motion.div 
@@ -167,6 +168,7 @@ const AnimatedRoutes = () => {
           <Route path="questions" element={<QuestionBankDashboard />} />
           <Route path="career-changes" element={<CareerChangeManagement />} />
           <Route path="topic-notes" element={<TopicNotesManagement />} />
+          <Route path="learning-hub" element={<LearningHubAdmin />} />
           <Route path="helpdesk" element={<AdminHelpdeskPanel defaultTab="tickets" />} />
           <Route path="footer" element={<MainAdminDashboard defaultTab="footer" />} />
           <Route path="certificates" element={<MainAdminDashboard defaultTab="certificates" />} />

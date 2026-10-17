@@ -349,6 +349,14 @@ const AppShell = () => {
                         Question Bank
                       </Link>
                       <Link
+                        to="/admin/learning-hub"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        <BrainCircuit className="h-4 w-4 text-cyan-400" />
+                        Learning Hub Governance
+                      </Link>
+                      <Link
                         to="/interview/dynamic"
                         onClick={() => setOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] text-sm text-slate-200 hover:bg-white/[0.08]"
