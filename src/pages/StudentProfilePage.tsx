@@ -376,7 +376,8 @@ const StudentProfilePage: React.FC = () => {
     setSubmittingCareerChange(true);
     try {
       await api.post('/api/career-change-requests', {
-        requestedCareer: careerChangeForm.requestedCareer,
+        fromRole: profile?.career || 'Current curriculum',
+        toRole: careerChangeForm.requestedCareer,
         reason: careerChangeForm.reason.trim(),
       });
 
