@@ -41,7 +41,6 @@ export const navItems = [
   { label: 'Career Twin', href: '/career-twin', icon: BrainCircuit },
   { label: 'Career Gaps', href: '/career-gap', icon: Target },
   { label: 'Learning', href: '/learning', icon: BookOpen },
-  { label: 'English Practice', href: '/learning/english', icon: MessageSquareText },
   { label: 'Interview', href: '/interview', icon: Video },
   { label: 'Jobs', href: '/jobs', icon: BriefcaseBusiness },
   { label: 'HR', href: '/hr', icon: Building2 },

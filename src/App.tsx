@@ -33,7 +33,6 @@ const CareerChangeManagement = lazy(() => import('./components/admin/CareerChang
 const TopicNotesManagement = lazy(() => import('./components/admin/TopicNotesManagement').then(m => ({ default: m.TopicNotesManagement })));
 const AdminHelpdeskPanel = lazy(() => import('./components/admin/AdminHelpdeskPanel').then(m => ({ default: m.AdminHelpdeskPanel })));
 const LearningHubAdmin = lazy(() => import('./pages/LearningHubAdmin'));
-const EnglishPractice = lazy(() => import('./pages/EnglishPractice'));
 
 const RouteFallback = () => (
   <motion.div 
@@ -138,7 +137,6 @@ const AnimatedRoutes = () => {
           <Route path="/career-twin" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="career-twin"><CareerTwin /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/career-gap" element={<ProtectedRoute allowedRoles={['STUDENT']}><CareerGapAnalysis /></ProtectedRoute>} />
           <Route path="/learning" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="learning"><LearningHub /></PageAccessWrapper></ProtectedRoute>} />
-          <Route path="/learning/english" element={<ProtectedRoute allowedRoles={['STUDENT']}><EnglishPractice /></ProtectedRoute>} />
           <Route path="/interview" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><DynamicInterviewPage /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/interview/dynamic" element={<ProtectedRoute allowedRoles={['STUDENT']}><PageAccessWrapper pageId="interview"><DynamicInterviewPage /></PageAccessWrapper></ProtectedRoute>} />
           <Route path="/report/:id" element={<ReportCard />} />

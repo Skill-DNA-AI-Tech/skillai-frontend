@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 type Tab = 'overview' | 'learn' | 'challenge' | 'notes' | 'ask';
 type Topic = { name: string; subtopics: string[]; status: string; mcqScore?: number; attempts: number; isMastered: boolean };
-type Curriculum = { career: string; domain: string; description: string; topics: Topic[]; totalTopics: number; masteredTopics: number; completionPercentage: number };
+type Curriculum = { career: string; domain: string; description: string; topics: Topic[]; totalTopics: number; masteredTopics: number; completionPercentage: number; activeSubject?: string; subjects?: Array<{ id: string; name: string; description: string }> };
 type Batch = { batchId: string; career?: string; batchNumber: number; status: string; questionCount: number; questions: any[]; difficultyDistribution?: Record<string, number>; answerKeyReleased?: boolean; publishedAt?: string };
 
 const LearningHub = () => {
@@ -29,6 +29,7 @@ const LearningHub = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [search, setSearch] = useState('');
+  const [switchingSubject, setSwitchingSubject] = useState(false);
 
   const loadCurriculum = useCallback(async () => {
     if (!token) return;
@@ -59,6 +60,13 @@ const LearningHub = () => {
   const topic = curriculum?.topics[selectedIndex];
   const filteredTopics = useMemo(() => (curriculum?.topics || []).filter((item) => item.name.toLowerCase().includes(search.toLowerCase())), [curriculum, search]);
 
+  const switchSubject = async (subject: string) => {
+    if (!token || subject === curriculum?.activeSubject) return;
+    setSwitchingSubject(true); setMessage(null);
+    try { await apiRequest('/learning/active-subject', { method: 'PUT', token, body: JSON.stringify({ subject }) }); setCurriculum((value) => value ? { ...value, activeSubject: subject } : value); setMessage({ tone: 'success', text: `Active subject changed to ${subject}.` }); }
+    catch (err: any) { setMessage({ tone: 'error', text: err.message || 'Subject change failed.' }); }
+    finally { setSwitchingSubject(false); }
+  };
   const selectTopic = async (index: number) => {
     if (!curriculum?.topics[index]) return;
     setSelectedIndex(index); setTab('learn'); setContentLoading(true); setMessage(null);
@@ -100,7 +108,7 @@ const LearningHub = () => {
   if (!curriculum?.career) return <main className="mx-auto max-w-2xl px-4 py-16 text-center"><div className="rounded-3xl border border-slate-800 bg-slate-900 p-8"><BookOpen className="mx-auto h-10 w-10 text-cyan-300" /><h1 className="mt-4 text-2xl font-bold text-white">Your path is not assigned yet</h1><p className="mt-3 text-sm leading-6 text-slate-400">Complete your profile to unlock a curriculum tailored to your stream and career goal.</p><Link to="/profile" className="mt-6 inline-flex rounded-xl bg-cyan-400 px-4 py-3 text-sm font-bold text-slate-950">Complete profile</Link></div></main>;
 
   return <main className="min-h-screen bg-[#07101f] text-slate-100"><div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-    <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">SkillDNA / Learning</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Your learning workspace</h1><p className="mt-1 text-sm text-slate-400">{curriculum.career} · {curriculum.domain}</p></div><div className="flex items-center gap-2"><Link to="/learning/english" className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-cyan-400">English practice</Link><button type="button" onClick={() => { setMessage(null); loadCurriculum(); loadBatches(); }} className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:border-cyan-400" aria-label="Refresh learning data"><RefreshCw className="h-4 w-4" /></button></div></header>
+    <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">SkillDNA / Learning</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Your learning workspace</h1><p className="mt-1 text-sm text-slate-400">{curriculum.career} · {curriculum.domain} · Focus: {curriculum.activeSubject || 'Choose a subject'}</p></div><div className="flex flex-wrap items-center gap-2"><select aria-label="Active subject" disabled={switchingSubject || !(curriculum.subjects?.length)} value={curriculum.activeSubject || curriculum.subjects?.[0]?.name || ''} onChange={(e) => switchSubject(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 outline-none focus:border-cyan-400">{curriculum.subjects?.map((subject) => <option key={subject.id} value={subject.name}>{subject.name}</option>)}</select><button type="button" onClick={() => { setMessage(null); loadCurriculum(); loadBatches(); }} className="rounded-xl border border-slate-700 p-2 text-slate-300 hover:border-cyan-400" aria-label="Refresh learning data"><RefreshCw className="h-4 w-4" /></button></div></header>
     <section className="mt-6 grid gap-4 lg:grid-cols-[1.4fr_0.6fr]"><div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-[#10243c] to-[#0c1728] p-6"><p className="text-sm text-cyan-200">Welcome back, {user?.name?.split(' ')[0] || 'learner'}</p><h2 className="mt-2 max-w-xl text-2xl font-bold text-white">Keep your next step small, visible, and yours.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">{curriculum.description}</p><button type="button" onClick={() => selectTopic(selectedIndex)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-3 text-sm font-bold text-slate-950">Continue learning <ArrowRight className="h-4 w-4" /></button></div><div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6"><div className="flex items-end justify-between"><span className="text-sm text-slate-400">Curriculum progress</span><strong className="text-3xl text-cyan-300">{curriculum.completionPercentage}%</strong></div><div className="mt-4"><ProgressBar value={curriculum.completionPercentage} tone="bg-gradient-to-r from-cyan-400 to-blue-500" /></div><div className="mt-5 grid grid-cols-2 gap-3"><Metric icon={<Trophy className="h-4 w-4" />} label="Mastered" value={`${curriculum.masteredTopics}/${curriculum.totalTopics}`} /><Metric icon={<Target className="h-4 w-4" />} label="Needs focus" value={String(curriculum.topics.filter((item) => item.status === 'NEEDS_REVISION').length)} /></div></div></section>
     {message && <div role="status" className={`mt-4 rounded-xl border p-3 text-sm ${message.tone === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200'}`}>{message.text}</div>}
     <nav className="mt-6 flex gap-2 overflow-x-auto border-b border-slate-800 pb-2" aria-label="Learning sections">{([['overview', 'Overview'], ['learn', 'Learn'], ['challenge', 'Monthly challenge'], ['notes', 'My notes'], ['ask', 'Ask AI']] as Array<[Tab, string]>).map(([value, label]) => <button type="button" key={value} onClick={() => setTab(value)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold ${tab === value ? 'bg-cyan-400 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>{label}</button>)}</nav>
