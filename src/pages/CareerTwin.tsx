@@ -22,6 +22,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
@@ -225,15 +226,20 @@ const CareerTwin = () => {
         title="Personal interview coach that learns from every answer"
         description="Your Career Twin tracks interview history, readiness, skill gaps, daily tasks, and adaptive follow-up questions from live performance data."
         action={
-          <button
-            type="button"
-            onClick={refreshMemory}
-            disabled={refreshing || loading}
-            className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh Twin
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/career-gap" className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/20">
+              <Target className="h-4 w-4" /> Career Gap Analysis
+            </Link>
+            <button
+              type="button"
+              onClick={refreshMemory}
+              disabled={refreshing || loading}
+              className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh Twin
+            </button>
+          </div>
         }
       />
 

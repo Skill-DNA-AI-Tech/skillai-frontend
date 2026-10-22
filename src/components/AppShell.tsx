@@ -41,7 +41,7 @@ const AppShell = () => {
     if (role === 'HR') {
       return ['Home', 'HR', 'Jobs', 'Community'].includes(item.label);
     }
-    return ['Home', 'Dashboard', 'Profile', 'Career Twin', 'Career Gaps', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
+    return ['Home', 'Dashboard', 'Profile', 'Career Twin', 'Learning', 'Interview', 'Jobs', 'Community'].includes(item.label);
   });
 
   const handleLogout = () => {
