@@ -12,7 +12,6 @@ import {
   Microscope,
   Scale,
   Stethoscope,
-  Target,
   User,
   UsersRound,
   Video,
