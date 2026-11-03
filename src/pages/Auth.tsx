@@ -1,15 +1,13 @@
-import { KeyRound, Mail, ShieldCheck, LogIn, Sparkles, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, LockKeyhole, LogIn, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import { FormEvent, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import SectionHeader from '../components/SectionHeader';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { roleHome, normalizeRole } from '../lib/rbac';
-import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 const Auth = () => {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password' | 'admin_otp'>('login');
+  const location = useLocation();
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset' | 'change_temp_password' | 'admin_otp'>(new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'student' | 'admin'>('student');
   const [email, setEmail] = useState('');
@@ -22,6 +20,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [tempRefreshToken, setTempRefreshToken] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const { user, role: authRole, login } = useAuth();
   const navigate = useNavigate();
@@ -261,313 +261,46 @@ const Auth = () => {
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-  };
+  const isCredentialMode = mode === 'login' || mode === 'register';
+  const inputClass = 'h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100';
+  const labelClass = 'grid gap-2 text-sm font-semibold text-slate-700';
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center min-h-[80vh] overflow-hidden">
-      <motion.section className="relative z-10" initial="hidden" animate="show" variants={containerVariants}>
-        <div className="absolute -left-20 -top-20 -z-10 h-64 w-64 rounded-full bg-cyan-500/10 blur-[80px] animate-pulse" />
-        <motion.div variants={itemVariants}>
-          <SectionHeader
-            eyebrow="Unified Authentication"
-            title="Single portal for all roles and accounts"
-            description="Sign in securely as a Student, HR Recruiter, Admin, Support Team, or Super Admin with instant role-based redirection."
-          />
-        </motion.div>
+    <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-10 sm:px-6 lg:py-16">
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+        <section className="hidden rounded-3xl bg-slate-900 p-9 text-white shadow-xl lg:block">
+          <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600"><Sparkles className="h-5 w-5" /></span><div><p className="font-bold">SkillDNA Tech AI</p><p className="text-xs text-slate-400">Your skills have a story.</p></div></div>
+          <p className="mt-16 text-xs font-bold uppercase tracking-[0.18em] text-blue-300">One common account gateway</p>
+          <h1 className="mt-4 text-4xl font-bold leading-tight">Understand your skills. Build your next step.</h1>
+          <p className="mt-5 text-base leading-7 text-slate-300">Students create an account here. Existing staff and administrators use the same sign-in form; the backend securely determines the account role.</p>
+          <div className="mt-10 space-y-3 text-sm text-slate-300"><div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-blue-300" /> Role-based access comes from the backend.</div><div className="flex items-center gap-3"><LockKeyhole className="h-5 w-5 text-blue-300" /> Your credentials are sent only to the existing auth API.</div><div className="flex items-center gap-3"><BookOpenCheckIcon /> Start with a profile, then follow your own path.</div></div>
+        </section>
 
-        <motion.div className="mt-10 grid gap-5" variants={containerVariants}>
-          {[
-            { icon: ShieldCheck, title: 'Single Login for All Roles', text: 'One login form supports Student, HR, Admin, Support Team, and Main Admin.' },
-            { icon: Mail, title: 'Secure Multi-Factor Auth', text: 'Two-step verification for administrative accounts and OTP password recovery.' },
-            { icon: KeyRound, title: 'Instant Role Routing', text: 'Automatically redirects to your specialized dashboard upon successful authentication.' },
-          ].map((item) => (
-            <motion.article
-              key={item.title}
-              variants={itemVariants}
-              whileHover={{ scale: 1.02 }}
-              className="group flex items-start gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-5 transition-all hover:border-cyan-500/20 hover:bg-white/[0.04] hover:shadow-[0_0_30px_rgba(34,211,238,0.1)]"
-            >
-              <div className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 transition-colors">
-                <item.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">{item.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{item.text}</p>
-              </div>
-            </motion.article>
-          ))}
-        </motion.div>
-      </motion.section>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-9">
+          <div className="mb-8"><p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">SkillDNA Tech AI</p><h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">{mode === 'register' ? 'Create your student account' : mode === 'login' ? 'Welcome back' : mode === 'forgot' ? 'Recover your account' : mode === 'admin_otp' ? 'Confirm administrator access' : 'Update your password'}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{mode === 'register' ? 'Registration is currently available for students. You can choose your career direction after signing in.' : mode === 'login' ? 'Use the same sign-in form for student and staff accounts.' : 'Complete the secure step below to continue.'}</p></div>
 
-      <motion.section
-        className="relative"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7, ease: 'easeOut', delay: 0.2 }}
-      >
-        <div className="absolute -right-20 -top-20 -z-10 h-72 w-72 rounded-full bg-blue-500/10 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute -bottom-20 -left-20 -z-10 h-72 w-72 rounded-full bg-emerald-500/10 blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+          {(mode === 'login' || mode === 'register') && <div className="mb-7 flex rounded-xl bg-slate-100 p-1"><button type="button" onClick={() => { setMode('login'); setError(null); setMessage(null); }} className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold ${mode === 'login' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Sign in</button><button type="button" onClick={() => { setMode('register'); setError(null); setMessage(null); setRole('student'); }} className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold ${mode === 'register' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Register</button></div>}
 
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/[0.7] p-8 backdrop-blur-xl shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 shadow-lg shadow-cyan-500/20">
-                <Sparkles className="h-6 w-6 text-slate-950" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Welcome back</h2>
-                <p className="text-sm text-slate-400">Sign in to your account to access your workspace.</p>
-              </div>
-            </div>
-
-            {/* Unified Role Badges */}
-            <div className="mb-6 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
-              <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-cyan-300 border border-cyan-500/20">Student</span>
-              <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-blue-300 border border-blue-500/20">HR / Recruiter</span>
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-emerald-300 border border-emerald-500/20">Admin</span>
-              <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-purple-300 border border-purple-500/20">Support Team</span>
-              <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-amber-300 border border-amber-500/20">Main Admin</span>
-            </div>
-
-            <form className="grid gap-5" onSubmit={handleSubmit}>
-              {mode !== 'change_temp_password' && mode !== 'admin_otp' && (
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setMode('login')}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'login' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                  >
-                    Login
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode('register')}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'register' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                  >
-                    Register
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode('forgot')}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'forgot' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
-                  >
-                    Forgot Password
-                  </button>
-                </div>
-              )}
-
-              {mode === 'login' && (
-                <>
-                  <GoogleLoginButton onSuccess={(user) => navigateToRole(user.role)} onFailure={(err) => setError(err)} />
-                  <div className="relative my-2 text-center">
-                    <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-white/5" style={{ transform: 'translateY(-50%)' }} />
-                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or continue with credentials</span>
-                  </div>
-                </>
-              )}
-
-              {mode === 'register' && (
-                <>
-                  <GoogleLoginButton onSuccess={(user) => navigateToRole(user.role)} onFailure={(err) => setError(err)} />
-                  <div className="relative my-2 text-center">
-                    <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-white/5" style={{ transform: 'translateY(-50%)' }} />
-                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative z-10">Or create an account with email</span>
-                  </div>
-                  <label className="grid gap-2 text-sm font-medium text-slate-300">
-                    Full Name
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                      placeholder="Enter your full name"
-                      required
-                    />
-                  </label>
-                </>
-              )}
-
-              {mode !== 'change_temp_password' && mode !== 'admin_otp' && (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  {mode === 'login' ? 'Email Address or Test User ID' : 'Email Address'}
-                  <input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                    type={mode === 'login' ? 'text' : 'email'}
-                    placeholder={mode === 'login' ? 'name@example.com or TEST-MECH-01' : 'name@example.com'}
-                    required
-                  />
-                </label>
-              )}
-
-              {(mode === 'login' || mode === 'register') && (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  Password
-                  <input
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                    type="password"
-                    placeholder="••••••••"
-                    required
-                  />
-                </label>
-              )}
-
-              {mode === 'admin_otp' && (
-                <div className="grid gap-4">
-                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-xs text-cyan-200">
-                    <p className="font-semibold text-white mb-1">Administrator Two-Step Verification</p>
-                    <p>Enter the 6-digit security code sent to <span className="font-mono text-cyan-300 font-bold">{adminEmail || email}</span>.</p>
-                    <p className="text-[11px] text-slate-400 mt-2">Check your email inbox or spam folder for the one-time security code.</p>
-                  </div>
-
-                  <label className="grid gap-2 text-sm font-medium text-slate-300">
-                    6-Digit Security Code
-                    <input
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="h-12 text-center tracking-[0.4em] text-lg font-mono rounded-lg border-white/10 bg-slate-950/50 px-4 text-cyan-400 placeholder-slate-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                      type="text"
-                      placeholder="••••••"
-                      maxLength={6}
-                      required
-                      autoFocus
-                    />
-                  </label>
-                </div>
-              )}
-
-              {mode === 'reset' && (
-                <>
-                  <label className="grid gap-2 text-sm font-medium text-slate-300">
-                    OTP Code
-                    <input
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                      type="text"
-                      placeholder="Enter OTP sent by email"
-                      required
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm font-medium text-slate-300">
-                    New Password
-                    <input
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                      type="password"
-                      placeholder="Enter a new password"
-                      required
-                    />
-                  </label>
-                </>
-              )}
-
-              {mode === 'change_temp_password' && (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  New Secure Password
-                  <input
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="h-11 rounded-lg border-white/10 bg-slate-950/50 px-4 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                    type="password"
-                    placeholder="Enter new custom password"
-                    required
-                  />
-                </label>
-              )}
-
-              {mode === 'register' && (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  Account Role
-                  <div className="relative">
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as any)}
-                      className="h-11 w-full appearance-none rounded-lg border-white/10 bg-slate-950/50 px-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer"
-                    >
-                      <option value="student">Student</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-cyan-400">
-                      <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500">HR accounts are created by Admin users. Admin signups require Main Admin approval.</p>
-                </label>
-              )}
-
-              {message && (
-                <div className="rounded-xl border border-teal-500/20 bg-teal-500/10 px-4 py-3 text-sm text-teal-100">
-                  {message}
-                </div>
-              )}
-
-              {error && (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                  {error}
-                </div>
-              )}
-
-              <div className="mt-4 grid gap-3">
-                <motion.button
-                  type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={loading}
-                  className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-4 text-sm font-bold text-slate-950 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <span className="relative z-10 flex items-center gap-2">
-                    <LogIn className="h-5 w-5 transition-transform group-hover:scale-110" />
-                    {loading
-                      ? 'Processing...'
-                      : mode === 'admin_otp'
-                      ? 'Verify & Sign In'
-                      : mode === 'register'
-                      ? 'Create Account'
-                      : mode === 'forgot'
-                      ? 'Send OTP'
-                      : mode === 'reset'
-                      ? 'Reset Password'
-                      : mode === 'change_temp_password'
-                      ? 'Update Password'
-                      : 'Sign In'}
-                  </span>
-                </motion.button>
-
-                {(mode === 'forgot' || mode === 'reset' || mode === 'admin_otp') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('login');
-                      setError(null);
-                      setMessage(null);
-                      setOtp('');
-                    }}
-                    className="text-left text-sm font-medium text-cyan-300 hover:text-white"
-                  >
-                    ← Back to sign in
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
-      </motion.section>
+          <form className="grid gap-5" onSubmit={handleSubmit}>
+            {mode === 'register' && <label className={labelClass}><span className="flex items-center gap-2"><UserRound className="h-4 w-4 text-blue-700" /> Full name</span><input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Your full name" autoComplete="name" required /></label>}
+            {mode !== 'change_temp_password' && mode !== 'admin_otp' && <label className={labelClass}><span className="flex items-center gap-2"><Mail className="h-4 w-4 text-blue-700" /> Email address</span><input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} type="email" placeholder="you@example.com" autoComplete="email" required /></label>}
+            {isCredentialMode && <label className={labelClass}><span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-blue-700" /> Password</span><span className="relative"><input value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputClass} pr-12`} type={showPassword ? 'text' : 'password'} placeholder="Enter your password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} required /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:text-blue-700">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>}
+            {mode === 'admin_otp' && <><div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">Enter the security code sent to <strong>{adminEmail || email}</strong>.</div><label className={labelClass}>6-digit security code<input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} className={`${inputClass} text-center tracking-[0.4em]`} inputMode="numeric" maxLength={6} required autoFocus /></label></>}
+            {mode === 'reset' && <><label className={labelClass}>OTP code<input value={otp} onChange={(e) => setOtp(e.target.value)} className={inputClass} required /></label><label className={labelClass}>New password<span className="relative"><input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`${inputClass} pr-12`} type={showNewPassword ? 'text' : 'password'} required /><button type="button" aria-label={showNewPassword ? 'Hide new password' : 'Show new password'} onClick={() => setShowNewPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500">{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label></>}
+            {mode === 'forgot' && <p className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">We will use the existing password-recovery flow for this email address.</p>}
+            {mode === 'change_temp_password' && <label className={labelClass}>New secure password<span className="relative"><input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`${inputClass} pr-12`} type={showNewPassword ? 'text' : 'password'} required /><button type="button" aria-label={showNewPassword ? 'Hide new password' : 'Show new password'} onClick={() => setShowNewPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500">{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>}
+            {message && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div>}
+            {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
+            <button type="submit" disabled={loading} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"><LogIn className="h-4 w-4" />{loading ? 'Please wait…' : mode === 'register' ? 'Create student account' : mode === 'admin_otp' ? 'Verify and sign in' : mode === 'forgot' ? 'Send recovery code' : mode === 'reset' ? 'Reset password' : mode === 'change_temp_password' ? 'Update password' : 'Sign in'}</button>
+            {mode === 'login' && <button type="button" onClick={() => { setMode('forgot'); setError(null); setMessage(null); }} className="text-sm font-semibold text-blue-700 hover:text-blue-900">Forgot password?</button>}
+            {(mode === 'forgot' || mode === 'reset' || mode === 'admin_otp') && <button type="button" onClick={() => { setMode('login'); setError(null); setMessage(null); setOtp(''); }} className="text-left text-sm font-semibold text-blue-700 hover:text-blue-900">← Back to sign in</button>}
+          </form>
+        </section>
+      </div>
     </main>
   );
-};
+}
+
+const BookOpenCheckIcon = () => <span className="grid h-5 w-5 place-items-center rounded border border-blue-300 text-[10px] font-bold text-blue-300">✓</span>;
 
 export default Auth;
